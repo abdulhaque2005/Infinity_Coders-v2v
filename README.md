@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://res.cloudinary.com/vpkjuqda/image/upload/v1783612779/Screenshot_2026-07-09_212859_stnev0.png" alt="SafeSphere AI Logo" width="180" />
+  <img src="https://res.cloudinary.com/vpkjuqda/image/upload/r_30/v1783612779/Screenshot_2026-07-09_212859_stnev0.png" alt="SafeSphere AI Logo" width="180" />
 </p>
 
 <h1 align="center">SafeSphere AI</h1>
