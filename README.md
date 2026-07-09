@@ -1,4 +1,5 @@
 <p align="center">
+  <!-- TODO: User will manually replace the logo.png file in the assets folder with their red shield image -->
   <img src="./assets/logo.png" alt="SafeSphere AI Logo" width="180" height="180" />
 </p>
 
