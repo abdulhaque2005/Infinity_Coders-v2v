@@ -15,7 +15,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/React_Native-000020?style=for-the-badge&logo=react&logoColor=61DAFB" />
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/Firebase-DD2C00?style=for-the-badge&logo=firebase&logoColor=white" />
+  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" />
   <img src="https://img.shields.io/badge/Gemini_2.0-8E75FF?style=for-the-badge&logo=google&logoColor=white" />
 </p>
 
@@ -69,38 +69,40 @@ Authorized contacts receive real-time access to a low-latency dashboard featurin
 
 ## 🏗️ System Architecture
 
-The platform operates on a **4-tier architecture** spanning the mobile client, Firebase serverless backend, AI processing layer, and Google Maps cluster. Every component is purpose-built for high-throughput safety analytics at scale:
+The platform operates on a **Feature-First Clean Architecture** spanning the mobile client, Supabase backend, Edge Functions, and AI processing layer. Every component is purpose-built for high-throughput safety analytics at scale:
 
 ```mermaid
 flowchart TD
     subgraph Client ["🌐 Client Tier — React Native Expo"]
         direction TB
-        React["⚛️ React Components<br>(Pages + Layouts + NativeWind)"]
+        UI["⚛️ Feature UI<br>(Expo Router + NativeWind)"]
         
-        Zustand["🧠 Zustand Stores<br>(authStore, safetyStore, sosStore)"]
-        Router["🗺️ Expo Router v4<br>(PrivateRoute + Layout guards)"]
+        State["🧠 Local State & Cache<br>(Zustand + TanStack Query)"]
         
-        React --> Zustand
-        React --> Router
+        UI --> State
         
-        Services["🚀 Business Services<br>(Offline SMS + SOS Engine)"]
-        Zustand --> Services
+        Sync["🔄 Sync Engine<br>(Expo SQLite Outbox)"]
+        State --> Sync
     end
 
-    Client -- "HTTPS / WSS (Real-time)" --> Backend
+    Client -- "REST / Realtime" --> Backend
 
-    subgraph Backend ["☁️ Backend Tier — Firebase Cloud"]
+    subgraph Backend ["☁️ Backend Tier — Supabase"]
         direction TB
-        Auth["🔐 Firebase Auth<br>(OAuth 2.0 + JWT)"]
+        Auth["🔐 Supabase Auth<br>(JWT)"]
         
-        Firestore["🗄️ Firestore Database<br>(Real-time NoSQL + Offline Sync)"]
+        Postgres["🗄️ PostgreSQL Database<br>(Row Level Security + PostGIS)"]
         
-        Storage["📁 Cloud Storage<br>(AES-256 Encrypted Evidence)"]
+        Storage["📁 Supabase Storage<br>(AES-256 Encrypted Evidence)"]
         
-        FCM["🔔 Cloud Messaging<br>(Emergency Push Notifications)"]
+        Edge["⚡ Edge Functions<br>(Deno / AI Integration)"]
+        
+        Realtime["🔔 Supabase Realtime<br>(Live Location Tracking)"]
 
-        Auth --> Firestore
-        Firestore --> Storage
+        Auth --> Postgres
+        Postgres --> Edge
+        Postgres --> Realtime
+        Postgres --> Storage
     end
 
     Backend -- "Serverless / RPC" --> AI
@@ -157,12 +159,12 @@ The platform implements a **Zero-Trust, Defense-in-Depth** security model across
 flowchart LR
     subgraph APISide ["⚙️ API-Side Security"]
         direction TB
-        Rules["🛡️ Firestore Rules<br>(RBAC + UID matching)"]
+        Rules["🛡️ Postgres RLS<br>(Row Level Security)"]
         CORS["🌐 CORS Whitelist<br>(Only allowed origins)"]
-        Rate["⏱️ Rate Limiting<br>Auth: 15 req/15min<br>Data: 100 req/15min"]
+        Rate["⏱️ Rate Limiting<br>Edge Functions (Vault secrets)"]
         StorageSec["📁 Storage Security<br>(Auth-only Evidence Upload)"]
-        NoSQL["🧹 Payload Sanitizer<br>(Strip malicious keys)"]
-        JWT["🔐 JWT Verify<br>(RS256 signature check)"]
+        NoSQL["🧹 Schema Validator<br>(Postgres constraints + Enums)"]
+        JWT["🔐 JWT Verify<br>(Supabase Auth)"]
         
         Rules --> CORS --> Rate --> StorageSec --> NoSQL --> JWT
     end
@@ -203,29 +205,26 @@ flowchart LR
 
 ---
 
-## 🗄️ Database Tier — Firestore NoSQL
+## 🗄️ Database Tier — PostgreSQL Schema
 
 ```mermaid
-flowchart TD
-    subgraph Database ["🗄️ Database Tier — Cloud Firestore"]
-        direction LR
-        Users["👤 users collection"]
-        Events["🚨 sos_events collection<br>(Real-time emergency tracking)"]
-        Guardians["👨‍👩‍👧 guardians collection"]
-        Evidence["📸 evidence collection"]
-
-        Events --> Pipelines["⚡ Real-time Listeners<br>(onSnapshot -> UI)"]
-        Pipelines --> Indexes["🔑 Compound Indexes<br>({userId: 1, timestamp: -1})"]
-    end
-
-    style Users fill:#0F766E,color:#fff,stroke:#14B8A6
-    style Events fill:#0F766E,color:#fff,stroke:#14B8A6
-    style Guardians fill:#0F766E,color:#fff,stroke:#14B8A6
-    style Evidence fill:#0F766E,color:#fff,stroke:#14B8A6
-    style Pipelines fill:#1E3A8A,color:#fff,stroke:#3B82F6
-    style Indexes fill:#1E3A8A,color:#fff,stroke:#3B82F6
-
-    style Database fill:#424242,stroke:none,color:#fff
+erDiagram
+  PROFILES ||--o{ TRUSTED_CONTACTS : has
+  PROFILES ||--o{ JOURNEYS : starts
+  PROFILES ||--o{ SOS_EVENTS : triggers
+  PROFILES ||--o{ COMMUNITY_REPORTS : submits
+  PROFILES ||--o{ REPORT_VOTES : casts
+  PROFILES ||--o{ PUSH_TOKENS : registers
+  PROFILES ||--o{ ASSISTANT_CONVERSATIONS : owns
+  SOS_EVENTS ||--o{ SOS_LOCATION_PINGS : streams
+  SOS_EVENTS ||--o{ SOS_GUARDIANS : notifies
+  SOS_EVENTS ||--o{ EVIDENCE_FILES : captures
+  JOURNEYS ||--o{ JOURNEY_CHECKINS : records
+  JOURNEYS ||--o| SOS_EVENTS : "may escalate to"
+  TRUSTED_CONTACTS }o--|| PROFILES : "guardian profile"
+  COMMUNITY_REPORTS ||--o{ REPORT_VOTES : receives
+  COMMUNITY_REPORTS ||--o{ REPORT_COMMENTS : receives
+  SAFETY_SCORES }o--|| GEO_CELLS : "computed for"
 ```
 
 ---
@@ -237,7 +236,8 @@ flowchart TD
 | **Core Framework** | React Native + Expo | Cross-platform mobile architecture |
 | **State Management** | Zustand + React Query | Predictable local and server state sync |
 | **Styling Engine** | NativeWind (Tailwind CSS) | Utility-first, performant glassmorphism |
-| **Cloud Backend** | Firebase (Firestore/Auth/Storage) | Real-time NoSQL and scalable auth |
+| **Cloud Backend** | Supabase (Postgres/Auth/Edge/Realtime) | Robust RLS and scalable backend |
+| **Offline Storage** | Expo SQLite (Drizzle ORM) | Durable SOS outbox and sync engine |
 | **AI Processing** | Gemini 2.0 Flash + TF Lite | Millisecond-latency risk analysis |
 | **Geolocation** | Google Maps Platform | Routing, Heatmaps, and Safe Zones |
 
@@ -248,7 +248,8 @@ flowchart TD
 ### Prerequisites
 - Node.js `v18+`
 - Expo CLI
-- Firebase Project with Firestore & Storage enabled
+- Docker (for local Supabase instance)
+- Supabase CLI
 
 ### Installation
 
