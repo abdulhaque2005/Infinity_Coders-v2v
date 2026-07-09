@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/🛡️_SAFESPHERE_AI-8B5CF6?style=for-the-badge&labelColor=0A0A0F" alt="SafeSphere AI" />
+  <img src="./assets/logo.png" alt="SafeSphere AI Logo" width="180" height="180" />
 </p>
 
 <h1 align="center">SafeSphere AI</h1>
