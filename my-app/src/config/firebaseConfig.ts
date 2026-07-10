@@ -10,6 +10,7 @@ import {
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { Platform } from "react-native";
+import { getStorage } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Your Firebase Web configuration fetched from your project
@@ -41,13 +42,15 @@ const emailProvider = new EmailAuthProvider();
 const googleProvider = new GoogleAuthProvider();
 const phoneProvider = typeof window !== 'undefined' || Platform.OS !== 'web' ? new PhoneAuthProvider(auth) : null;
 
-// Initialize Cloud Firestore
+// Initialize Cloud Firestore and Storage
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 export { 
   app, 
   auth, 
   db,
+  storage,
   emailProvider,
   googleProvider,
   phoneProvider
