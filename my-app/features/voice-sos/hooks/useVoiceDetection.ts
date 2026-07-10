@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { DecisionEngine } from '../services/decision.service';
 import { EmergencyService } from '../../emergency/services/emergency.service';
@@ -14,12 +15,13 @@ import { SpeechService } from '../services/speech.service';
 import { SoundService } from '../services/sound.service';
 import { WakeWordService } from '../services/wakeword.service';
 
-import { EmotionScore, SoundScore, SupportedLanguage, AudioChunk, VoicePipelineState } from '../types/voice.types';
+import { EmotionScore, SoundScore, SupportedLanguage, AudioChunk, VoicePipelineState, EmotionType, SoundType } from '../types/voice.types';
 import {
   EmergencyEvent,
   EmergencyTriggerType,
   TriggerHandler,
   NetworkStatus,
+  EmergencyStatus,
 } from '../../emergency/types/emergency.types';
 import { EMERGENCY_THRESHOLD, HIGH_ALERT_THRESHOLD } from '../utils/constants';
 import { sosLogger } from '../utils/logger';
@@ -96,6 +98,61 @@ export function useVoiceDetection(options: UseVoiceDetectionOptions = {}) {
 
   const unsubscribeChunkRef = useRef<(() => void) | null>(null);
   const unsubscribeEmergencyRef = useRef<(() => void) | null>(null);
+
+  // ─── Web Fallback (Speech Recognition) ────────────────────────────────
+  useEffect(() => {
+    if (Platform.OS === 'web' && autoStart) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = async (event: any) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          
+          const text = transcript.toLowerCase();
+          if (text.includes('help') || text.includes('emergency') || text.includes('bachao')) {
+            sosLogger.info(LOG_SOURCE, 'Web Speech API detected keyword!', { text });
+            setIsEmergency(true);
+            setPipelineState(VoicePipelineState.EMERGENCY);
+            
+            // Trigger emergency service directly for web demo
+            await services.current.emergency.triggerEmergency({
+              decision: { shouldTrigger: true, confidenceScore: 100, status: EmergencyStatus.EMERGENCY, reason: 'Web Speech API keyword detected', timestamp: Date.now(), signals: {} as any, weights: {} as any },
+              emotionBreakdown: [{ emotion: EmotionType.PANIC, confidence: 0.95, intensity: 1 }],
+              soundBreakdown: [{ sound: SoundType.SCREAMING, confidence: 0.9 }],
+              location: riskFactors?.location ?? null,
+              battery: 100,
+              network: NetworkStatus.ONLINE,
+              keyword: 'help',
+              speechText: text,
+              language: 'en' as SupportedLanguage,
+              timeline: [],
+            });
+          }
+        };
+
+        recognition.onerror = (e: any) => {
+          sosLogger.warn(LOG_SOURCE, 'Web Speech Recognition error', { error: e.error });
+        };
+
+        try {
+          recognition.start();
+        } catch (e) {}
+
+        return () => {
+          try {
+            recognition.stop();
+          } catch(e) {}
+        };
+      }
+    }
+  }, [autoStart]);
 
   // ─── Initialization ───────────────────────────────────────────────────
 
