@@ -9,10 +9,17 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { authService } from '../../src/services/authService';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function GatheringInfoScreen() {
   const router = useRouter();
@@ -20,13 +27,78 @@ export default function GatheringInfoScreen() {
   
   const [fullName, setFullName] = useState((params.fullName as string) || '');
   const [email, setEmail] = useState((params.email as string) || '');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState((params.password as string) || '');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [dob, setDob] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleNext = () => {
-    router.push('/(auth)/safety-info');
+  const handleDobChange = (text: string) => {
+    // Simple mask for MM/DD/YYYY
+    let cleaned = text.replace(/[^0-9]/g, '');
+    if (cleaned.length > 8) cleaned = cleaned.substring(0, 8);
+    
+    let formatted = cleaned;
+    if (cleaned.length > 2) {
+      formatted = cleaned.substring(0, 2) + '/' + cleaned.substring(2);
+    }
+    if (cleaned.length > 4) {
+      formatted = formatted.substring(0, 5) + '/' + cleaned.substring(4);
+    }
+    setDob(formatted);
+  };
+
+  const handleNext = async () => {
+    if (password !== confirmPassword && !params.password) {
+      Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+    // If we came from sign-up with password, they didn't have to fill confirm password.
+    // If they typed it here, they do. We'll enforce password match if they type it here.
+    const finalPassword = password || (params.password as string);
+    if (!finalPassword) {
+      Alert.alert("Error", "Please enter a password");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await authService.signUp(email, finalPassword, fullName);
+      router.push('/(auth)/safety-info');
+    } catch (error: any) {
+      Alert.alert("Sign up Error", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '719972551474-f2qbq105sfuo0oo5ulo7sqvi2hca0g3f.apps.googleusercontent.com',
+  });
+
+  React.useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      authService.loginWithGoogleCredential(id_token).then(() => {
+        router.replace('/(tabs)/home');
+      }).catch(error => {
+        Alert.alert('Google Sign-In Error', error.message);
+      });
+    }
+  }, [response]);
+
+  const handleGoogleSignIn = async () => {
+    if (Platform.OS === 'web') {
+      try {
+        await authService.loginWithGoogleWeb();
+        router.replace('/(tabs)/home');
+      } catch (error: any) {
+        Alert.alert('Google Sign-In Error', error.message);
+      }
+    } else {
+      promptAsync();
+    }
   };
 
   return (
@@ -179,12 +251,16 @@ export default function GatheringInfoScreen() {
               <View style={styles.inputWrapper}>
                 <Feather name="calendar" size={18} color="#F34E62" style={styles.inputIconLeft} />
                 <TextInput
-                  style={[styles.textInput, { color: '#9CA3AF' }]}
-                  placeholder="Select your date of birth"
+                  style={[styles.textInput, { color: '#1F2937' }]}
+                  placeholder="MM/DD/YYYY"
                   placeholderTextColor="#9CA3AF"
-                  editable={false} // Would normally open a date picker
+                  editable={true}
+                  keyboardType="numeric"
+                  value={dob}
+                  onChangeText={handleDobChange}
+                  maxLength={10}
                 />
-                <Feather name="chevron-down" size={20} color="#6B7280" style={styles.inputIconRight} />
+                <Feather name="calendar" size={20} color="#6B7280" style={styles.inputIconRight} />
               </View>
             </View>
             
@@ -205,17 +281,17 @@ export default function GatheringInfoScreen() {
 
           {/* Social Sign Up */}
           <View style={styles.socialContainer}>
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn}>
               <FontAwesome5 name="google" size={18} color="#DB4437" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Sign up with Google</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={() => Alert.alert('Coming Soon', 'Apple Sign-In requires an active Apple Developer account to configure.')}>
               <FontAwesome5 name="apple" size={20} color="#000000" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Sign up with Apple</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={() => router.push('/(auth)/otp-verify')}>
               <Feather name="phone" size={18} color="#6D28D9" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Sign up with Phone Number</Text>
             </TouchableOpacity>

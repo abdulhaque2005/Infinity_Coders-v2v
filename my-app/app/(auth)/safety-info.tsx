@@ -7,20 +7,59 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { authService } from '../../src/services/authService';
+import * as Location from 'expo-location';
 
 export default function SafetyInfoScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [medicalConditions, setMedicalConditions] = useState('');
   const [pushEnabled, setPushEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
+  const [locationGranted, setLocationGranted] = useState(false);
 
-  const handleNext = () => {
-    // Navigate to step 3 (Trusted Contacts)
-    router.push('/(auth)/trusted-contacts');
+  const requestLocationPermission = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Location access is required for emergency features.');
+      return;
+    }
+    setLocationGranted(true);
+  };
+
+  const handleNext = async () => {
+    if (!age || !gender) {
+      Alert.alert("Missing Information", "Please enter your age and gender.");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await authService.updateUserProfile({
+        age,
+        gender,
+        safetyPreferences: {
+          pushEnabled,
+          smsEnabled,
+          emailEnabled,
+          medicalConditions,
+        }
+      });
+      router.push('/(auth)/trusted-contacts');
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -109,23 +148,24 @@ export default function SafetyInfoScreen() {
             <View style={styles.halfInputWrapper}>
               <Feather name="calendar" size={16} color="#F34E62" style={styles.inputIconLeft} />
               <TextInput
-                style={[styles.textInput, { color: '#9CA3AF' }]}
-                placeholder="Select your age"
+                style={[styles.textInput, { color: '#111827' }]}
+                placeholder="Enter age"
                 placeholderTextColor="#9CA3AF"
-                editable={false}
+                value={age}
+                onChangeText={setAge}
+                keyboardType="numeric"
               />
-              <Feather name="chevron-down" size={18} color="#9CA3AF" />
             </View>
 
             <View style={styles.halfInputWrapper}>
               <MaterialCommunityIcons name="gender-male-female" size={18} color="#F34E62" style={styles.inputIconLeft} />
               <TextInput
-                style={[styles.textInput, { color: '#9CA3AF' }]}
-                placeholder="Select gender"
+                style={[styles.textInput, { color: '#111827' }]}
+                placeholder="Enter gender"
                 placeholderTextColor="#9CA3AF"
-                editable={false}
+                value={gender}
+                onChangeText={setGender}
               />
-              <Feather name="chevron-down" size={18} color="#9CA3AF" />
             </View>
           </View>
         </View>
@@ -141,12 +181,22 @@ export default function SafetyInfoScreen() {
           <Text style={styles.cardDescription}>
             We need location access to share your location during emergencies and provide safety alerts.
           </Text>
-          <TouchableOpacity style={styles.locationButton}>
+          <TouchableOpacity 
+            style={[styles.locationButton, locationGranted && { backgroundColor: '#DEF7EC', borderColor: '#0E9F6E' }]} 
+            onPress={requestLocationPermission}
+            disabled={locationGranted}
+          >
             <View style={styles.locationButtonLeft}>
-              <Feather name="navigation" size={16} color="#9061F9" style={{ transform: [{ rotate: '45deg' }] }} />
-              <Text style={styles.locationButtonText}>Enable Location Access</Text>
+              {locationGranted ? (
+                <Feather name="check-circle" size={16} color="#0E9F6E" />
+              ) : (
+                <Feather name="navigation" size={16} color="#9061F9" style={{ transform: [{ rotate: '45deg' }] }} />
+              )}
+              <Text style={[styles.locationButtonText, locationGranted && { color: '#0E9F6E' }]}>
+                {locationGranted ? 'Location Access Enabled' : 'Enable Location Access'}
+              </Text>
             </View>
-            <Feather name="chevron-right" size={18} color="#9061F9" />
+            {!locationGranted && <Feather name="chevron-right" size={18} color="#9061F9" />}
           </TouchableOpacity>
         </View>
 
@@ -164,13 +214,13 @@ export default function SafetyInfoScreen() {
           <View style={styles.fullInputWrapper}>
             <FontAwesome5 name="briefcase-medical" size={14} color="#0E9F6E" style={styles.inputIconLeft} />
             <TextInput
-              style={[styles.textInput, { color: '#9CA3AF' }]}
+              style={[styles.textInput, { color: '#111827', flex: 1 }]}
               placeholder="Any medical conditions?"
               placeholderTextColor="#9CA3AF"
-              editable={false}
+              value={medicalConditions}
+              onChangeText={setMedicalConditions}
             />
             <Text style={styles.optionalText}>(Optional)</Text>
-            <Feather name="chevron-down" size={18} color="#9CA3AF" />
           </View>
         </View>
 
@@ -241,9 +291,15 @@ export default function SafetyInfoScreen() {
         </View>
 
         {/* Next Button */}
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>Next</Text>
-          <Feather name="chevron-right" size={20} color="#FFFFFF" style={styles.buttonArrow} />
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <Text style={styles.nextButtonText}>Next</Text>
+              <Feather name="chevron-right" size={20} color="#FFFFFF" style={styles.buttonArrow} />
+            </>
+          )}
         </TouchableOpacity>
 
         {/* Pagination Dots */}

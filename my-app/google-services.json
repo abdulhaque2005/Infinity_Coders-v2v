@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "719972551474",
+    "project_id": "safesphere-ai-64ea1",
+    "storage_bucket": "safesphere-ai-64ea1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719972551474:android:db894bc63b4f6e9947e52b",
+        "android_client_info": {
+          "package_name": "com.saptak.safesphereai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "719972551474-f2qbq105sfuo0oo5ulo7sqvi2hca0g3f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWpTw1WOTTF9T1g914LgvFsUYttAw-VO4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "719972551474-f2qbq105sfuo0oo5ulo7sqvi2hca0g3f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,18 +7,53 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { authService } from '../../src/services/authService';
+
+interface Contact {
+  name: string;
+  relation?: string;
+  phone?: string;
+}
 
 export default function TrustedContactsScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [contactInput, setContactInput] = useState('');
+  const [contacts, setContacts] = useState<Contact[]>([]);
 
-  const handleNext = () => {
-    // Navigate to final Complete step
-    router.push('/(auth)/complete');
+  const handleNext = async () => {
+    setLoading(true);
+    try {
+      await authService.updateUserProfile({
+        trustedContacts: contacts,
+      });
+      router.push('/(auth)/complete');
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addContact = () => {
+    if (!contactInput.trim()) return;
+    if (contacts.length >= 5) {
+      Alert.alert("Limit Reached", "You can add up to 5 trusted contacts.");
+      return;
+    }
+    setContacts([...contacts, { name: contactInput.trim() }]);
+    setContactInput('');
+  };
+
+  const removeContact = (index: number) => {
+    setContacts(contacts.filter((_, i) => i !== index));
   };
 
   return (
@@ -107,10 +142,12 @@ export default function TrustedContactsScreen() {
                 style={styles.textInput}
                 placeholder="Enter name or phone number"
                 placeholderTextColor="#9CA3AF"
+                value={contactInput}
+                onChangeText={setContactInput}
               />
               <MaterialCommunityIcons name="contacts-outline" size={20} color="#6B7280" />
             </View>
-            <TouchableOpacity style={styles.addButton}>
+            <TouchableOpacity style={styles.addButton} onPress={addContact}>
               <Feather name="plus" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
               <Text style={styles.addButtonText}>Add</Text>
             </TouchableOpacity>
@@ -120,78 +157,45 @@ export default function TrustedContactsScreen() {
 
         {/* Section 2: Contact List */}
         <View style={styles.contactListCard}>
-          {/* Contact 1 */}
-          <View style={styles.contactItem}>
-            <Image source={{ uri: 'https://i.pravatar.cc/150?img=5' }} style={styles.avatar} />
-            <View style={styles.contactDetails}>
-              <View style={styles.contactNameRow}>
-                <Text style={styles.contactName}>Ananya Sharma</Text>
-                <View style={styles.primaryBadge}>
-                  <MaterialCommunityIcons name="star" size={12} color="#D97706" />
-                  <Text style={styles.primaryBadgeText}>Primary</Text>
+          {contacts.map((contact, index) => (
+            <React.Fragment key={index}>
+              {index > 0 && <View style={styles.divider} />}
+              <View style={styles.contactItem}>
+                <Image source={{ uri: `https://i.pravatar.cc/150?img=${(index % 10) + 1}` }} style={styles.avatar} />
+                <View style={styles.contactDetails}>
+                  <View style={styles.contactNameRow}>
+                    <Text style={styles.contactName}>{contact.name}</Text>
+                    {index === 0 && (
+                      <View style={styles.primaryBadge}>
+                        <MaterialCommunityIcons name="star" size={12} color="#D97706" />
+                        <Text style={styles.primaryBadgeText}>Primary</Text>
+                      </View>
+                    )}
+                  </View>
+                  {contact.relation && <Text style={styles.contactRelation}>{contact.relation}</Text>}
+                  {contact.phone && (
+                    <View style={styles.contactPhoneRow}>
+                      <Feather name="phone-call" size={12} color="#F34E62" />
+                      <Text style={styles.contactPhone}>{contact.phone}</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.contactActions}>
+                  <TouchableOpacity style={styles.actionIconButton}>
+                    <Feather name="message-circle" size={18} color="#F34E62" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionIconButton} onPress={() => removeContact(index)}>
+                    <Feather name="trash-2" size={18} color="#9CA3AF" />
+                  </TouchableOpacity>
                 </View>
               </View>
-              <Text style={styles.contactRelation}>Sister</Text>
-              <View style={styles.contactPhoneRow}>
-                <Feather name="phone-call" size={12} color="#F34E62" />
-                <Text style={styles.contactPhone}>+91 98765 43210</Text>
-              </View>
-            </View>
-            <View style={styles.contactActions}>
-              <TouchableOpacity style={styles.actionIconButton}>
-                <Feather name="message-circle" size={18} color="#F34E62" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionIconButton}>
-                <Feather name="trash-2" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* Contact 2 */}
-          <View style={styles.contactItem}>
-            <Image source={{ uri: 'https://i.pravatar.cc/150?img=11' }} style={styles.avatar} />
-            <View style={styles.contactDetails}>
-              <Text style={styles.contactName}>Rahul Sharma</Text>
-              <Text style={styles.contactRelation}>Brother</Text>
-              <View style={styles.contactPhoneRow}>
-                <Feather name="phone-call" size={12} color="#F34E62" />
-                <Text style={styles.contactPhone}>+91 91234 56789</Text>
-              </View>
-            </View>
-            <View style={styles.contactActions}>
-              <TouchableOpacity style={styles.actionIconButton}>
-                <Feather name="message-circle" size={18} color="#F34E62" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionIconButton}>
-                <Feather name="trash-2" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* Contact 3 */}
-          <View style={styles.contactItem}>
-            <Image source={{ uri: 'https://i.pravatar.cc/150?img=9' }} style={styles.avatar} />
-            <View style={styles.contactDetails}>
-              <Text style={styles.contactName}>Meera Iyer</Text>
-              <Text style={styles.contactRelation}>Best Friend</Text>
-              <View style={styles.contactPhoneRow}>
-                <Feather name="phone-call" size={12} color="#F34E62" />
-                <Text style={styles.contactPhone}>+91 99887 76655</Text>
-              </View>
-            </View>
-            <View style={styles.contactActions}>
-              <TouchableOpacity style={styles.actionIconButton}>
-                <Feather name="message-circle" size={18} color="#F34E62" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionIconButton}>
-                <Feather name="trash-2" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-          </View>
+            </React.Fragment>
+          ))}
+          {contacts.length === 0 && (
+            <Text style={{ textAlign: 'center', color: '#9CA3AF', padding: 20 }}>
+              No trusted contacts added yet.
+            </Text>
+          )}
         </View>
 
         {/* Section 3: Emergency Message Preview */}
@@ -231,9 +235,15 @@ export default function TrustedContactsScreen() {
         </View>
 
         {/* Next Button */}
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>Next</Text>
-          <Feather name="chevron-right" size={20} color="#FFFFFF" style={styles.buttonArrow} />
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <Text style={styles.nextButtonText}>Complete Setup</Text>
+              <Feather name="check" size={20} color="#FFFFFF" style={styles.buttonArrow} />
+            </>
+          )}
         </TouchableOpacity>
 
         {/* Pagination Dots */}

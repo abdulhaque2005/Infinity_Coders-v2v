@@ -9,11 +9,14 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons, FontAwesome } from '@expo/vector-icons';
+import { authService } from '../../src/services/authService';
 
 export default function OtpVerifyScreen() {
   const router = useRouter();
@@ -21,13 +24,41 @@ export default function OtpVerifyScreen() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
 
-  const handleSendOtp = () => {
-    if (otpSent) {
-      // If code entered, verify and log in
-      router.replace('/(tabs)/home');
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSendOtp = async () => {
+    if (otpSent && confirmationResult) {
+      if (!otpCode) {
+        Alert.alert('Error', 'Please enter the OTP code');
+        return;
+      }
+      setLoading(true);
+      try {
+        await confirmationResult.confirm(otpCode);
+        router.replace('/(tabs)/home');
+      } catch (error: any) {
+        Alert.alert('Verification Failed', error.message);
+      } finally {
+        setLoading(false);
+      }
     } else {
-      // Simulate sending OTP code
-      setOtpSent(true);
+      if (!phoneNumber) {
+        Alert.alert('Error', 'Please enter your phone number');
+        return;
+      }
+      setLoading(true);
+      try {
+        // Note: For Web SDK, you typically need a RecaptchaVerifier passed here.
+        // authService.sendOtp expects an appVerifier. We pass null for now or you can wire up a recaptcha container.
+        const result = await authService.sendOtp(phoneNumber, undefined);
+        setConfirmationResult(result);
+        setOtpSent(true);
+      } catch (error: any) {
+        Alert.alert('OTP Failed', error.message);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -41,7 +72,7 @@ export default function OtpVerifyScreen() {
           <Feather name="arrow-left" size={24} color="#1F2937" />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.languageButton}>
+        <TouchableOpacity style={styles.languageButton} onPress={() => Alert.alert('Language', 'Language selection coming soon.')}>
           <Feather name="globe" size={16} color="#4B5563" style={styles.globeIcon} />
           <Text style={styles.languageText}>English</Text>
           <Feather name="chevron-down" size={14} color="#4B5563" />
@@ -167,19 +198,19 @@ export default function OtpVerifyScreen() {
           {/* Social Login Buttons */}
           <View style={styles.socialContainer}>
             {/* Google */}
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={() => router.replace('/(auth)/sign-in')}>
               <Ionicons name="logo-google" size={18} color="#EA4335" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Continue with Google</Text>
             </TouchableOpacity>
 
             {/* Apple */}
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={() => Alert.alert('Coming Soon', 'Apple Sign-In requires an active Apple Developer account to configure.')}>
               <FontAwesome name="apple" size={18} color="#000000" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Continue with Apple</Text>
             </TouchableOpacity>
 
             {/* Phone */}
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={() => Alert.alert('Phone Login', 'You are already in the Phone Login flow.')}>
               <Feather name="phone" size={18} color="#6B21A8" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Continue with Phone</Text>
             </TouchableOpacity>

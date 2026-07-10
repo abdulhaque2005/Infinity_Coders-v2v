@@ -9,11 +9,18 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons, FontAwesome } from '@expo/vector-icons';
+import { authService } from '../../src/services/authService';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -21,9 +28,63 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = () => {
-    // Navigate to home tab
-    router.replace('/(tabs)/home');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter your email and password');
+      return;
+    }
+    setLoading(true);
+    try {
+      await authService.login(email, password);
+      router.replace('/(tabs)/home');
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Reset Password', 'Please enter your email address first.');
+      return;
+    }
+    try {
+      await authService.resetPassword(email);
+      Alert.alert('Success', 'Password reset email sent. Check your inbox.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '719972551474-f2qbq105sfuo0oo5ulo7sqvi2hca0g3f.apps.googleusercontent.com',
+  });
+
+  React.useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      authService.loginWithGoogleCredential(id_token).then(() => {
+        router.replace('/(tabs)/home');
+      }).catch(error => {
+        Alert.alert('Google Sign-In Error', error.message);
+      });
+    }
+  }, [response]);
+
+  const handleGoogleSignIn = async () => {
+    if (Platform.OS === 'web') {
+      try {
+        await authService.loginWithGoogleWeb();
+        router.replace('/(tabs)/home');
+      } catch (error: any) {
+        Alert.alert('Google Sign-In Error', error.message);
+      }
+    } else {
+      promptAsync();
+    }
   };
 
   return (
@@ -36,7 +97,7 @@ export default function SignInScreen() {
           <Feather name="arrow-left" size={24} color="#1F2937" />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.languageButton}>
+        <TouchableOpacity style={styles.languageButton} onPress={() => Alert.alert('Language', 'Language selection coming soon.')}>
           <Feather name="globe" size={16} color="#4B5563" style={styles.globeIcon} />
           <Text style={styles.languageText}>English</Text>
           <Feather name="chevron-down" size={14} color="#4B5563" />
@@ -139,7 +200,7 @@ export default function SignInScreen() {
             </View>
 
             {/* Forgot Password Link */}
-            <TouchableOpacity style={styles.forgotContainer}>
+            <TouchableOpacity style={styles.forgotContainer} onPress={handleForgotPassword}>
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>
 
@@ -164,19 +225,19 @@ export default function SignInScreen() {
           {/* Social Login Buttons */}
           <View style={styles.socialContainer}>
             {/* Google */}
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn}>
               <Ionicons name="logo-google" size={18} color="#EA4335" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Continue with Google</Text>
             </TouchableOpacity>
 
             {/* Apple */}
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={() => Alert.alert('Coming Soon', 'Apple Sign-In requires an active Apple Developer account to configure.')}>
               <FontAwesome name="apple" size={18} color="#000000" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Continue with Apple</Text>
             </TouchableOpacity>
 
             {/* Phone */}
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} onPress={() => router.push('/(auth)/otp-verify')}>
               <Feather name="phone" size={18} color="#6B21A8" style={styles.socialIcon} />
               <Text style={styles.socialButtonText}>Continue with Phone</Text>
             </TouchableOpacity>
