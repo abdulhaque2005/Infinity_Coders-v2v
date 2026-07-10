@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Contact {
   id: string;
@@ -40,6 +41,40 @@ export default function ProfileScreen() {
   const [bgTracking, setBgTracking] = useState(true);
   const [pushNotif, setPushNotif] = useState(true);
   const [shakeTrigger, setShakeTrigger] = useState(true);
+
+  // Load persistent data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const storedContacts = await AsyncStorage.getItem('@safesphere_contacts');
+        if (storedContacts) setContacts(JSON.parse(storedContacts));
+        
+        const settings = await AsyncStorage.getItem('@safesphere_settings');
+        if (settings) {
+          const parsed = JSON.parse(settings);
+          setSmsFallback(parsed.smsFallback ?? true);
+          setBgTracking(parsed.bgTracking ?? true);
+          setPushNotif(parsed.pushNotif ?? true);
+          setShakeTrigger(parsed.shakeTrigger ?? true);
+        }
+      } catch (e) {
+        console.error('Failed to load profile data', e);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Save contacts
+  useEffect(() => {
+    AsyncStorage.setItem('@safesphere_contacts', JSON.stringify(contacts));
+  }, [contacts]);
+
+  // Save settings
+  useEffect(() => {
+    AsyncStorage.setItem('@safesphere_settings', JSON.stringify({
+      smsFallback, bgTracking, pushNotif, shakeTrigger
+    }));
+  }, [smsFallback, bgTracking, pushNotif, shakeTrigger]);
 
   const handleAddContact = () => {
     if (!newName || !newPhone) {
