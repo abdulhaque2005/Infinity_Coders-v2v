@@ -13,12 +13,76 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { SafeRouteMap } from '../../../features/location/components/SafeRouteMap';
+import { useLiveLocation } from '../../../features/location/hooks/useLiveLocation';
+import { RouteOption } from '../../../features/location/types/location.types';
+
 const { width, height } = Dimensions.get('window');
 
 export default function NavigateScreen() {
   const router = useRouter();
   const [selectedRoute, setSelectedRoute] = useState<'safest' | 'fastest'>('safest');
   const [destination, setDestination] = useState('Salt Lake Central Park');
+  const { location } = useLiveLocation();
+  const [routes, setRoutes] = useState<RouteOption[]>([]);
+  const [destinationCoords, setDestinationCoords] = useState({ latitude: 22.5855, longitude: 88.4166 });
+
+  React.useEffect(() => {
+    if (location) {
+      const start = { latitude: location.latitude, longitude: location.longitude };
+      const end = destinationCoords;
+      const generatePath = (curveOffset: number) => [
+        start,
+        { latitude: start.latitude + (end.latitude - start.latitude) * 0.3 + curveOffset, longitude: start.longitude + (end.longitude - start.longitude) * 0.3 },
+        { latitude: start.latitude + (end.latitude - start.latitude) * 0.7 - curveOffset, longitude: start.longitude + (end.longitude - start.longitude) * 0.7 },
+        end
+      ];
+      setRoutes([
+        {
+          id: 'safest',
+          title: 'Safest Route',
+          theme: 'green',
+          description: 'AI Recommended',
+          duration: '16 mins',
+          distance: '4.2 km',
+          tags: [],
+          coordinates: generatePath(0.002)
+        },
+        {
+          id: 'fastest',
+          title: 'Direct Route',
+          theme: 'orange',
+          description: 'Fastest',
+          duration: '12 mins',
+          distance: '3.1 km',
+          tags: [],
+          coordinates: generatePath(-0.003)
+        }
+      ]);
+    }
+  }, [location, destinationCoords]);
+
+  React.useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (destination.trim().length > 2) {
+        try {
+          // Use OpenStreetMap Nominatim for reliable free geocoding on Web
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`);
+          const data = await res.json();
+          if (data && data.length > 0) {
+            setDestinationCoords({ 
+              latitude: parseFloat(data[0].lat), 
+              longitude: parseFloat(data[0].lon) 
+            });
+          }
+        } catch (e) {
+          console.warn("Geocoding failed", e);
+        }
+      }
+    }, 1000); // 1s debounce
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [destination]);
 
   const handleStartJourney = () => {
     router.push({
@@ -75,35 +139,13 @@ export default function NavigateScreen() {
 
       {/* Main Map Visualization */}
       <View style={styles.mapContainer}>
-        {/* Simulated Map Visuals */}
-        <View style={styles.simulatedMap}>
-          {/* Roads */}
-          <View style={[styles.roadLine, { top: '35%', left: 0, right: 0 }]} />
-          <View style={[styles.roadLine, { top: '65%', left: 0, right: 0 }]} />
-          <View style={[styles.roadLine, { left: '30%', top: 0, bottom: 0, transform: [{ rotate: '15deg' }] }]} />
-          <View style={[styles.roadLine, { left: '70%', top: 0, bottom: 0, transform: [{ rotate: '-10deg' }] }]} />
-
-          {/* Route A: Fastest Route (Dashed orange/red) */}
-          <View style={styles.fastestPathLine} />
-          
-          {/* Route B: Safest Route (Solid green) */}
-          <View style={styles.safestPathLine} />
-
-          {/* Start and End Pins */}
-          <View style={[styles.pin, { top: '75%', left: '25%' }]}>
-            <View style={styles.startPinCore} />
-          </View>
-          
-          <View style={[styles.pin, { top: '25%', left: '75%' }]}>
-            <Feather name="map-pin" size={24} color="#DC2626" />
-          </View>
-
-          {/* Danger Spot Alert */}
-          <View style={[styles.dangerOverlay, { top: '45%', left: '35%' }]}>
-            <MaterialCommunityIcons name="alert-octagon" size={18} color="#DC2626" />
-            <Text style={styles.dangerLabel}>Dim Lit Area</Text>
-          </View>
-        </View>
+        <SafeRouteMap 
+          currentLocation={location}
+          destination={{ latitude: destinationCoords.latitude, longitude: destinationCoords.longitude, address: destination }}
+          routes={routes}
+          selectedRoute={routes.find(r => r.id === selectedRoute) || null}
+          onLongPressMap={() => {}}
+        />
       </View>
 
       {/* Route Cards Scroll Container */}
