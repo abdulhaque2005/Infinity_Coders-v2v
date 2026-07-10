@@ -6,500 +6,263 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Switch,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { HeartPulse, User, Phone, Save, Trash2, PlusCircle } from 'lucide-react-native';
+import { DrawerToggleButton } from '@react-navigation/drawer';
+import { authService } from '../../../src/services/authService';
 
-interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  isGuardian: boolean;
-}
+const COLORS = {
+  bg: '#EBF0F9',
+  textPrimary: '#111638',
+  textSecondary: '#69708A',
+  purplePrimary: '#6D35E8',
+  red: '#F04438',
+  shadow: 'rgba(163, 177, 198, 0.55)',
+  highlight: '#FFFFFF',
+};
+
+const NeumorphicCard = ({ children, style, padding = 16 }: any) => (
+  <View style={[styles.neuOuter, style]}>
+    <View style={[styles.neuInner, { padding }]}>
+      {children}
+    </View>
+  </View>
+);
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   
-  // Trusted contacts state
-  const [contacts, setContacts] = useState<Contact[]>([
-    { id: '1', name: 'Rajesh (Dad)', phone: '+91 98300 12345', isGuardian: true },
-    { id: '2', name: 'Anjali', phone: '+91 98311 54321', isGuardian: true }
-  ]);
+  // User Info
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [medicalInfo, setMedicalInfo] = useState('');
   
-  // New contact form state
-  const [newName, setNewName] = useState('');
-  const [newPhone, setNewPhone] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
+  // Contacts
+  const [contacts, setContacts] = useState<any[]>([]);
 
-  // Settings state
-  const [smsFallback, setSmsFallback] = useState(true);
-  const [bgTracking, setBgTracking] = useState(true);
-  const [pushNotif, setPushNotif] = useState(true);
-  const [shakeTrigger, setShakeTrigger] = useState(true);
-
-  // Load persistent data
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const storedContacts = await AsyncStorage.getItem('@safesphere_contacts');
-        if (storedContacts) setContacts(JSON.parse(storedContacts));
-        
-        const settings = await AsyncStorage.getItem('@safesphere_settings');
-        if (settings) {
-          const parsed = JSON.parse(settings);
-          setSmsFallback(parsed.smsFallback ?? true);
-          setBgTracking(parsed.bgTracking ?? true);
-          setPushNotif(parsed.pushNotif ?? true);
-          setShakeTrigger(parsed.shakeTrigger ?? true);
-        }
-      } catch (e) {
-        console.error('Failed to load profile data', e);
-      }
-    };
-    loadData();
+    loadProfile();
   }, []);
 
-  // Save contacts
-  useEffect(() => {
-    AsyncStorage.setItem('@safesphere_contacts', JSON.stringify(contacts));
-  }, [contacts]);
-
-  // Save settings
-  useEffect(() => {
-    AsyncStorage.setItem('@safesphere_settings', JSON.stringify({
-      smsFallback, bgTracking, pushNotif, shakeTrigger
-    }));
-  }, [smsFallback, bgTracking, pushNotif, shakeTrigger]);
-
-  const handleAddContact = () => {
-    if (!newName || !newPhone) {
-      Alert.alert('Error', 'Please fill in both name and phone number.');
-      return;
+  const loadProfile = async () => {
+    try {
+      const profile = await authService.getUserProfile();
+      if (profile) {
+        setFullName(profile.fullName || '');
+        setPhone(profile.phone || '');
+        setMedicalInfo(profile.safetyPreferences?.medicalConditions || '');
+        setContacts(profile.trustedContacts || []);
+      }
+    } catch (e) {
+      console.log('Failed to load profile', e);
+    } finally {
+      setLoading(false);
     }
-    const newContact: Contact = {
-      id: Date.now().toString(),
-      name: newName,
-      phone: newPhone,
-      isGuardian: true
-    };
-    setContacts(prev => [...prev, newContact]);
-    setNewName('');
-    setNewPhone('');
-    setIsAdding(false);
   };
 
-  const handleDeleteContact = (id: string) => {
-    setContacts(prev => prev.filter(c => c.id !== id));
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const currentProfile = await authService.getUserProfile();
+      await authService.updateUserProfile({
+        fullName,
+        phone,
+        safetyPreferences: {
+          ...(currentProfile?.safetyPreferences || {}),
+          medicalConditions: medicalInfo
+        }
+      });
+      Alert.alert('Success', 'Profile updated securely.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update profile.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleLogOut = () => {
-    router.replace('/(auth)/sign-in');
+  const handleDeleteContact = async (index: number) => {
+    Alert.alert('Remove Guardian', 'Are you sure you want to remove this guardian?', [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Remove', 
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const newContacts = [...contacts];
+            newContacts.splice(index, 1);
+            setContacts(newContacts);
+            await authService.updateUserProfile({ trustedContacts: newContacts });
+          } catch (e) {
+            Alert.alert('Error', 'Failed to remove contact.');
+          }
+        }
+      }
+    ]);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.purplePrimary} />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* User Card */}
-        <View style={styles.profileHeader}>
-          <View style={styles.profileAvatar}>
-            <Text style={styles.avatarText}>A</Text>
-          </View>
-          <Text style={styles.profileName}>Ananya Bhattacharya</Text>
-          <Text style={styles.profileDetails}>+91 98765 43210  •  ananya@email.com</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <DrawerToggleButton tintColor={COLORS.textPrimary} />
+        <Text style={styles.headerTitle}>My Profile</Text>
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
+          {saving ? <ActivityIndicator size="small" color={COLORS.purplePrimary} /> : <Text style={styles.saveText}>Save</Text>}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        
+        {/* Avatar Area */}
+        <View style={styles.avatarSection}>
+          <NeumorphicCard style={styles.avatarCard} padding={0}>
+            <View style={styles.avatarInner}>
+              <Text style={styles.avatarInitial}>{fullName ? fullName[0].toUpperCase() : 'U'}</Text>
+            </View>
+          </NeumorphicCard>
         </View>
 
-        {/* Trusted Contacts Manager */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Trusted Guardians</Text>
-            {!isAdding ? (
-              <TouchableOpacity 
-                style={styles.addBtn}
-                onPress={() => setIsAdding(true)}
-              >
-                <Feather name="plus" size={16} color="#6D28D9" />
-                <Text style={styles.addBtnText}>Add</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity 
-                style={styles.addBtn}
-                onPress={() => setIsAdding(false)}
-              >
-                <Text style={[styles.addBtnText, { color: '#EF4444' }]}>Cancel</Text>
-              </TouchableOpacity>
-            )}
+        {/* Personal Details */}
+        <Text style={styles.sectionTitle}>Personal Details</Text>
+        <NeumorphicCard style={{ marginBottom: 24 }}>
+          <View style={styles.inputRow}>
+            <User size={20} color={COLORS.purplePrimary} style={styles.inputIcon} />
+            <TextInput 
+              style={styles.input}
+              placeholder="Full Name"
+              value={fullName}
+              onChangeText={setFullName}
+            />
           </View>
+          <View style={styles.divider} />
+          <View style={styles.inputRow}>
+            <Phone size={20} color={COLORS.purplePrimary} style={styles.inputIcon} />
+            <TextInput 
+              style={styles.input}
+              placeholder="Your Phone Number"
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+            />
+          </View>
+        </NeumorphicCard>
 
-          {isAdding && (
-            <View style={styles.addForm}>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Guardian Name"
-                placeholderTextColor="#9CA3AF"
-                value={newName}
-                onChangeText={setNewName}
-              />
-              <TextInput
-                style={styles.formInput}
-                placeholder="Phone Number (e.g. +91...)"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
-                value={newPhone}
-                onChangeText={setNewPhone}
-              />
-              <TouchableOpacity style={styles.saveContactBtn} onPress={handleAddContact}>
-                <Text style={styles.saveContactText}>Save Contact</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+        {/* Medical ID */}
+        <Text style={styles.sectionTitle}>Medical ID</Text>
+        <NeumorphicCard style={{ marginBottom: 24 }}>
+          <View style={styles.inputRow}>
+            <HeartPulse size={20} color={COLORS.red} style={styles.inputIcon} />
+            <TextInput 
+              style={[styles.input, { height: 80 }]}
+              placeholder="Blood Type, Allergies, Medical Conditions..."
+              multiline
+              value={medicalInfo}
+              onChangeText={setMedicalInfo}
+            />
+          </View>
+        </NeumorphicCard>
 
-          <View style={styles.contactsList}>
-            {contacts.map(contact => (
-              <View key={contact.id} style={styles.contactRow}>
-                <View style={styles.contactInfo}>
-                  <View style={styles.miniAvatar}>
-                    <Text style={styles.miniAvatarText}>
-                      {contact.name.charAt(0)}
-                    </Text>
+        {/* Trusted Guardians */}
+        <View style={styles.guardiansHeader}>
+          <Text style={styles.sectionTitle}>Trusted Guardians</Text>
+          <TouchableOpacity onPress={() => router.push('/(drawer)/add-contact')}>
+            <Text style={styles.addText}>+ Add New</Text>
+          </TouchableOpacity>
+        </View>
+
+        {contacts.length === 0 ? (
+          <NeumorphicCard style={{ alignItems: 'center', padding: 24, marginBottom: 40 }}>
+            <Text style={{ color: COLORS.textSecondary, marginBottom: 12 }}>No guardians added yet.</Text>
+            <TouchableOpacity onPress={() => router.push('/(drawer)/add-contact')} style={styles.addGuardianBtn}>
+              <Text style={{ color: '#FFF', fontWeight: '700' }}>Add Guardian</Text>
+            </TouchableOpacity>
+          </NeumorphicCard>
+        ) : (
+          <View style={{ marginBottom: 40 }}>
+            {contacts.map((contact, index) => (
+              <NeumorphicCard key={index} style={{ marginBottom: 16 }}>
+                <View style={styles.contactRow}>
+                  <View style={styles.contactAvatar}>
+                    <Text style={styles.contactInitials}>{contact.name ? contact.name[0].toUpperCase() : 'G'}</Text>
                   </View>
-                  <View>
+                  <View style={styles.contactInfo}>
                     <Text style={styles.contactName}>{contact.name}</Text>
-                    <Text style={styles.contactPhone}>{contact.phone}</Text>
+                    <Text style={styles.contactDetails}>{contact.phone} • {contact.relation}</Text>
                   </View>
+                  <TouchableOpacity onPress={() => handleDeleteContact(index)} style={{ padding: 8 }}>
+                    <Trash2 size={20} color={COLORS.red} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity 
-                  style={styles.deleteBtn}
-                  onPress={() => handleDeleteContact(contact.id)}
-                >
-                  <Feather name="trash-2" size={16} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
+              </NeumorphicCard>
             ))}
           </View>
-        </View>
-
-        {/* Emergency Triggers Settings */}
-        <Text style={styles.sectionLabel}>Emergency Settings</Text>
-        
-        <View style={styles.sectionCard}>
-          {/* Shake Trigger */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingTextContent}>
-              <Text style={styles.settingTitle}>Shake to Trigger SOS</Text>
-              <Text style={styles.settingDesc}>Trigger alarms by shaking device vigorously</Text>
-            </View>
-            <Switch
-              value={shakeTrigger}
-              onValueChange={setShakeTrigger}
-              trackColor={{ false: '#E5E7EB', true: '#C4B5FD' }}
-              thumbColor={shakeTrigger ? '#6D28D9' : '#F3F4F6'}
-            />
-          </View>
-          
-          <View style={styles.separator} />
-
-          {/* SMS Fallback */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingTextContent}>
-              <Text style={styles.settingTitle}>SMS Fallback Offline</Text>
-              <Text style={styles.settingDesc}>Send text alerts if data connectivity is lost</Text>
-            </View>
-            <Switch
-              value={smsFallback}
-              onValueChange={setSmsFallback}
-              trackColor={{ false: '#E5E7EB', true: '#C4B5FD' }}
-              thumbColor={smsFallback ? '#6D28D9' : '#F3F4F6'}
-            />
-          </View>
-
-          <View style={styles.separator} />
-
-          {/* Background Live Location Tracking */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingTextContent}>
-              <Text style={styles.settingTitle}>Background Location Sharing</Text>
-              <Text style={styles.settingDesc}>Allow background pings during active journeys</Text>
-            </View>
-            <Switch
-              value={bgTracking}
-              onValueChange={setBgTracking}
-              trackColor={{ false: '#E5E7EB', true: '#C4B5FD' }}
-              thumbColor={bgTracking ? '#6D28D9' : '#F3F4F6'}
-            />
-          </View>
-        </View>
-
-        {/* General Preferences */}
-        <Text style={styles.sectionLabel}>Preferences</Text>
-
-        <View style={styles.sectionCard}>
-          {/* Push Notifications */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingTextContent}>
-              <Text style={styles.settingTitle}>Push Notifications</Text>
-              <Text style={styles.settingDesc}>Receive warnings and verification alerts</Text>
-            </View>
-            <Switch
-              value={pushNotif}
-              onValueChange={setPushNotif}
-              trackColor={{ false: '#E5E7EB', true: '#C4B5FD' }}
-              thumbColor={pushNotif ? '#6D28D9' : '#F3F4F6'}
-            />
-          </View>
-
-          <View style={styles.separator} />
-
-          {/* AI Safety Analysis */}
-          <TouchableOpacity 
-            style={styles.settingRow}
-            onPress={() => router.push('/(drawer)/(tabs)/safety-analysis')}
-          >
-            <View style={styles.settingTextContent}>
-              <Text style={styles.settingTitle}>AI Safety Analysis</Text>
-              <Text style={styles.settingDesc}>View your personalized safety overview</Text>
-            </View>
-            <Feather name="chevron-right" size={18} color="#9CA3AF" />
-          </TouchableOpacity>
-
-          <View style={styles.separator} />
-
-          {/* Language Selection */}
-          <TouchableOpacity style={styles.settingRow}>
-            <View style={styles.settingTextContent}>
-              <Text style={styles.settingTitle}>Language</Text>
-              <Text style={styles.settingDesc}>English (United States)</Text>
-            </View>
-            <Feather name="chevron-right" size={18} color="#9CA3AF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Log Out Button */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogOut}>
-          <Feather name="log-out" size={18} color="#EF4444" />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
-
-        {/* Version spacer */}
-        <Text style={styles.versionText}>SafeSphere AI • Version 1.0.0 (Production MVP)</Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAF9FC',
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  header: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+    paddingHorizontal: 8, height: 60 
   },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  profileHeader: {
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  profileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#6D28D9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#6D28D9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '800',
-  },
-  profileName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1F2937',
-    marginTop: 15,
-  },
-  profileDetails: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
+  headerTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
+  saveBtn: { paddingHorizontal: 16, paddingVertical: 8 },
+  saveText: { fontSize: 16, fontWeight: '700', color: COLORS.purplePrimary },
+  scrollContent: { padding: 20 },
+  avatarSection: { alignItems: 'center', marginBottom: 32 },
+  avatarCard: { width: 100, height: 100, borderRadius: 50 },
+  avatarInner: { width: '100%', height: '100%', borderRadius: 50, backgroundColor: '#E5D5FF', justifyContent: 'center', alignItems: 'center' },
+  avatarInitial: { fontSize: 40, fontWeight: '800', color: COLORS.purplePrimary },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 },
+  neuOuter: {
     borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.01,
-    shadowRadius: 8,
-    elevation: 1,
-    marginBottom: 20,
+    backgroundColor: COLORS.bg,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
+  neuInner: {
+    borderRadius: 20,
+    backgroundColor: COLORS.bg,
+    shadowColor: COLORS.highlight,
+    shadowOffset: { width: -6, height: -6 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1F2937',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  addBtnText: {
-    fontSize: 13,
-    color: '#6D28D9',
-    fontWeight: '700',
-  },
-  addForm: {
-    backgroundColor: '#FAF9FC',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 15,
-    gap: 10,
-  },
-  formInput: {
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    fontSize: 13,
-    color: '#1F2937',
-  },
-  saveContactBtn: {
-    backgroundColor: '#6D28D9',
-    height: 38,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveContactText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  contactsList: {
-    gap: 12,
-  },
-  contactRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  contactInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  miniAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F3E8FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  miniAvatarText: {
-    color: '#6D28D9',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  contactName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  contactPhone: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  deleteBtn: {
-    padding: 8,
-  },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 10,
-    paddingLeft: 4,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  settingTextContent: {
-    flex: 1,
-    marginRight: 10,
-  },
-  settingTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  settingDesc: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: '#FEE2E2',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  logoutText: {
-    color: '#EF4444',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  versionText: {
-    textAlign: 'center',
-    fontSize: 11,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 4 },
+  inputIcon: { marginTop: 10, marginRight: 12 },
+  input: { flex: 1, fontSize: 16, color: COLORS.textPrimary, paddingVertical: 10 },
+  divider: { height: 1, backgroundColor: '#E5E7EB', marginLeft: 32, marginVertical: 8 },
+  guardiansHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingHorizontal: 8 },
+  addText: { color: COLORS.purplePrimary, fontWeight: '700', fontSize: 14 },
+  addGuardianBtn: { backgroundColor: COLORS.purplePrimary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
+  contactRow: { flexDirection: 'row', alignItems: 'center' },
+  contactAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.bg, justifyContent: 'center', alignItems: 'center', marginRight: 12, shadowColor: COLORS.shadow, shadowOffset: {width: 2, height: 2}, shadowOpacity: 0.5, shadowRadius: 4, elevation: 2 },
+  contactInitials: { fontSize: 16, fontWeight: '800', color: COLORS.purplePrimary },
+  contactInfo: { flex: 1 },
+  contactName: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  contactDetails: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
 });
-
