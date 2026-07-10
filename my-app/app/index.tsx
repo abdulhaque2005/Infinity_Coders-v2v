@@ -1,6 +1,6 @@
-import React from 'react';
-import { useAuth } from "@clerk/clerk-expo";
-import { useEffect } from "react";
+import React, { useEffect, useState } from 'react';
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/src/config/firebaseConfig";
 import {
   StyleSheet,
   View,
@@ -19,13 +19,15 @@ const { width } = Dimensions.get('window');
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { isSignedIn } = useAuth();
+  const [isSignedIn, setIsSignedIn] = useState(false);
 
   useEffect(() => {
-    if (isSignedIn) {
-      router.replace("/(drawer)/(tabs)/home");
-    }
-  }, [isSignedIn]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsSignedIn(!!user);
+      if (user) router.replace("/(drawer)/(tabs)/home");
+    });
+    return unsubscribe;
+  }, []);
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
