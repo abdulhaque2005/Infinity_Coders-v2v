@@ -29,10 +29,7 @@ export default function ProfileScreen() {
   const { user } = useUser();
   
   // Trusted contacts state
-  const [contacts, setContacts] = useState<Contact[]>([
-    { id: '1', name: 'Rajesh (Dad)', phone: '+91 98300 12345', isGuardian: true },
-    { id: '2', name: 'Anjali', phone: '+91 98311 54321', isGuardian: true }
-  ]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   
   // New contact form state
   const [newName, setNewName] = useState('');
@@ -116,7 +113,9 @@ export default function ProfileScreen() {
         {/* User Card */}
         <View style={styles.profileHeader}>
           <View style={styles.profileAvatar}>
-            <Text style={styles.avatarText}>{user?.firstName?.[0] || 'U'}</Text>
+            <Text style={styles.avatarText}>
+              {`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U'}
+            </Text>
           </View>
           <Text style={styles.profileName}>
             {user?.firstName} {user?.lastName}
