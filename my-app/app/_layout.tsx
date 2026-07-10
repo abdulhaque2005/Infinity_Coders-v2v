@@ -9,8 +9,13 @@ import "react-native-reanimated";
 import { useEffect } from "react";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+if (!publishableKey) {
+  throw new Error(
+    'Missing Publishable Key. Please set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env'
+  );
+}
 
 // Auth guard: session ke hisaab se redirect karta hai
 function InitialLayout() {
