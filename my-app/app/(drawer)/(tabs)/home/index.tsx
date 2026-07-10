@@ -45,12 +45,8 @@ import {
   Menu,
   AlertOctagon,
 } from 'lucide-react-native';
-<<<<<<< HEAD
-=======
-import { auth } from '../../../../src/config/firebaseConfig';
->>>>>>> d6e98139d7974a5c30db5bc419e347bcb8dbc710
+import { auth } from '@/src/config/firebaseConfig';
 import { FirebaseGuardianRepository } from '@/features/guardian/repositories/FirebaseGuardianRepository';
-
 
 const COLORS = {
   bg: '#EBF0F9', // Matched to the image's cool blue-gray

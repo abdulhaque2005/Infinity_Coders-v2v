@@ -7,20 +7,28 @@ export class FirebaseGuardianRepository implements IGuardianRepository {
     console.log(`[FirebaseGuardianRepository] Fetching guardians from Firestore...`);
     const user = auth.currentUser;
     if (!user) {
-      console.warn('[FirebaseGuardianRepository] No authenticated user found.');
-      return [];
+      console.warn('[FirebaseGuardianRepository] No authenticated user found. Returning mock Guardian for Hackathon Demo!');
+      return [{
+        id: 'mock_demo_guardian',
+        userId: 'demo_user',
+        name: 'Demo Guardian',
+        phone: '+917870929584',
+        relationship: 'Demo'
+      }];
     }
 
     const profile = await authService.getUserProfile();
     
     if (profile && profile.trustedContacts && Array.isArray(profile.trustedContacts)) {
-      return profile.trustedContacts.map((contact: any, index: number) => ({
+      const guardians = profile.trustedContacts.map((contact: any, index: number) => ({
         id: `fb_g_${index}`,
         userId: user.uid,
         name: contact.name,
         phone: contact.phone || (contact.name && /\d/.test(contact.name) ? contact.name : ''),
         relationship: contact.relation || 'Family'
       })).filter((g: Guardian) => g.phone && g.phone.length >= 10);
+      
+      if (guardians.length > 0) return guardians;
     }
     
     return [];

@@ -1,174 +1,188 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const admin = require('firebase-admin');
-const twilio = require('twilio');
+const axios = require('axios');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize Firebase Admin (requires serviceAccountKey.json or GOOGLE_APPLICATION_CREDENTIALS)
-// For local hackathon dev, if no credential is provided, we can mock verification or require a downloaded key.
-// Since we don't have the key file, we will set up a placeholder that verifies if a key exists.
-let authVerified = false;
-try {
-  // Try initializing with default credentials (if GOOGLE_APPLICATION_CREDENTIALS is set)
-  admin.initializeApp();
-  authVerified = true;
-} catch (e) {
-  console.warn("Firebase Admin failed to initialize. Auth verification will be mocked for hackathon.");
-}
+// ─── Config ───────────────────────────────────────────────────────────────────
+const VONAGE_API_KEY    = process.env.VONAGE_API_KEY;
+const VONAGE_API_SECRET = process.env.VONAGE_API_SECRET;
+const VONAGE_FROM       = process.env.VONAGE_FROM || 'SafeSphere';
 
-// Initialize Twilio
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID || 'AC_mock',
-  process.env.TWILIO_AUTH_TOKEN || 'mock_token'
-);
+const TWILIO_SID    = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN  = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_FROM   = process.env.TWILIO_PHONE_NUMBER;
 
-const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER || '+1234567890';
-const TWILIO_WHATSAPP = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+const FAST2SMS_KEY  = process.env.FAST2SMS_API_KEY;
 
-// Middleware to verify Firebase Auth Token
-const verifyToken = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: No token provided' });
-  }
-
-  const token = authHeader.split('Bearer ')[1];
-  
-  if (authVerified) {
-    try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
-      req.user = decodedToken;
-      next();
-    } catch (error) {
-      console.error("Token verification failed:", error);
-      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
-    }
-  } else {
-    // Hackathon Fallback: If no service account key is available, bypass
-    req.user = { uid: 'hackathon_mock_user' };
-    next();
-  }
+// HACKATHON MODE: No auth
+const verifyToken = (req, res, next) => {
+  req.user = { uid: 'hackathon_demo_user' };
+  next();
 };
 
-app.post('/api/emergency/dispatch', verifyToken, async (req, res) => {
-  try {
-    const { phones, payload, customMessage, type } = req.body;
+// ─── SMS Providers ────────────────────────────────────────────────────────────
 
-    if (!phones || !phones.length) {
-      return res.status(400).json({ error: 'No phone numbers provided' });
-    }
+/** Provider 1: Vonage (free €2 credit on signup) */
+async function sendVonageSMS(to, message) {
+  if (!VONAGE_API_KEY || !VONAGE_API_SECRET) throw new Error('Vonage not configured');
 
-    console.log(`[Emergency Dispatch] Received ${type || 'mixed'} request for ${phones.length} guardians from user ${req.user.uid}`);
-    
-    const results = [];
+  const toClean = to.replace(/[^0-9]/g, '');
+  const toE164 = toClean.startsWith('91') ? toClean : '91' + toClean.slice(-10);
 
-    for (const phone of phones) {
-      const to = phone.startsWith('+') ? phone : `+91${phone.replace(/[^0-9]/g, '')}`;
-      if (!to || to === '+91') continue;
+  const resp = await axios.post('https://rest.nexmo.com/sms/json', {
+    api_key: VONAGE_API_KEY,
+    api_secret: VONAGE_API_SECRET,
+    to: toE164,
+    from: VONAGE_FROM,
+    text: message,
+  });
 
-      if (type === 'sms') {
-         // Force SMS Only mode (WhatsApp bypassed)
-         try {
-           console.log(`[Twilio] Attempting to send SMS to ${to}...`);
-           const smsMessage = await twilioClient.messages.create({
-             body: customMessage || JSON.stringify(payload, null, 2),
-             from: TWILIO_PHONE,
-             to: to
-           });
-           console.log(`[Twilio] SMS sent successfully. SID: ${smsMessage.sid}`);
-           results.push({ phone: to, status: 'sms_success', sid: smsMessage.sid });
-         } catch (smsError) {
-           console.error(`[Twilio] SMS failed for ${to}:`, smsError.message);
-           results.push({ phone: to, status: 'failed', error: smsError.message });
-         }
-      } else {
-         // Default Mode: WhatsApp First, Fallback to SMS
-         try {
-           console.log(`[Twilio] Attempting to send WhatsApp to ${to}...`);
-           const waMessage = await twilioClient.messages.create({
-             body: customMessage || JSON.stringify(payload, null, 2),
-             from: TWILIO_WHATSAPP,
-             to: `whatsapp:${to}`
-           });
-           console.log(`[Twilio] WhatsApp sent successfully. SID: ${waMessage.sid}`);
-           results.push({ phone: to, status: 'whatsapp_success', sid: waMessage.sid });
-         } catch (waError) {
-           console.error(`[Twilio] WhatsApp failed for ${to}:`, waError.message);
-           console.log(`[Twilio] Falling back to SMS for ${to}...`);
-           
-           try {
-             const smsMessage = await twilioClient.messages.create({
-               body: customMessage || JSON.stringify(payload, null, 2),
-               from: TWILIO_PHONE,
-               to: to
-             });
-             console.log(`[Twilio] SMS sent successfully. SID: ${smsMessage.sid}`);
-             results.push({ phone: to, status: 'sms_success', sid: smsMessage.sid });
-           } catch (smsError) {
-             console.error(`[Twilio] SMS fallback also failed for ${to}:`, smsError.message);
-             results.push({ phone: to, status: 'failed', error: smsError.message });
-           }
-         }
+  const result = resp.data.messages?.[0];
+  if (result?.status !== '0') {
+    throw new Error(`Vonage error: ${result?.['error-text'] || JSON.stringify(result)}`);
+  }
+  console.log(`[Vonage] ✅ SMS sent to ${toE164}. ID: ${result['message-id']}`);
+  return result;
+}
+
+/** Provider 2: Fast2SMS (India, ₹100 min transaction for API) */
+async function sendFast2SMS(phones, message) {
+  if (!FAST2SMS_KEY) throw new Error('Fast2SMS not configured');
+  const numbers = phones.map(p => p.replace(/[^0-9]/g, '').slice(-10)).join(',');
+  const resp = await axios.post('https://www.fast2sms.com/dev/bulkV2', {
+    route: 'q', message, language: 'english', flash: 0, numbers,
+  }, { headers: { authorization: FAST2SMS_KEY, 'Content-Type': 'application/json' } });
+  if (!resp.data.return) throw new Error('Fast2SMS failed: ' + JSON.stringify(resp.data));
+  console.log('[Fast2SMS] ✅ SMS sent!');
+  return resp.data;
+}
+
+/** Provider 3: Twilio fallback */
+async function sendTwilioSMS(to, message) {
+  if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_FROM) throw new Error('Twilio not configured');
+  const twilio = require('twilio')(TWILIO_SID, TWILIO_TOKEN);
+  const toE164 = to.startsWith('+') ? to : '+91' + to.replace(/[^0-9]/g, '').slice(-10);
+  const msg = await twilio.messages.create({ body: message, from: TWILIO_FROM, to: toE164 });
+  console.log(`[Twilio] ✅ SMS sent. SID: ${msg.sid}`);
+  return msg;
+}
+
+// ─── Main dispatch with provider fallback chain ───────────────────────────────
+async function dispatchSMS(phones, message) {
+  const results = [];
+
+  for (const phone of phones) {
+    let sent = false;
+
+    // 1️⃣ Try Vonage first (free credits, works globally)
+    if (VONAGE_API_KEY) {
+      try {
+        await sendVonageSMS(phone, message);
+        results.push({ phone, status: 'vonage_success' });
+        sent = true;
+      } catch (e) {
+        console.log(`[Vonage] Failed for ${phone}:`, e.message);
       }
     }
 
-    res.status(200).json({ success: true, results });
+    // 2️⃣ Try Fast2SMS (India)
+    if (!sent && FAST2SMS_KEY) {
+      try {
+        await sendFast2SMS([phone], message);
+        results.push({ phone, status: 'fast2sms_success' });
+        sent = true;
+      } catch (e) {
+        console.log(`[Fast2SMS] Failed for ${phone}:`, e.message);
+      }
+    }
 
-  } catch (error) {
-    console.error("[Emergency Dispatch] Fatal Server Error:", error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    // 3️⃣ Try Twilio (fallback)
+    if (!sent) {
+      try {
+        await sendTwilioSMS(phone, message);
+        results.push({ phone, status: 'twilio_success' });
+        sent = true;
+      } catch (e) {
+        console.log(`[Twilio] Failed for ${phone}:`, e.message);
+        results.push({ phone, status: 'failed', error: e.message });
+      }
+    }
+  }
+
+  return results;
+}
+
+// ─── Endpoints ────────────────────────────────────────────────────────────────
+app.post('/api/emergency/dispatch', verifyToken, async (req, res) => {
+  try {
+    const { phones, customMessage } = req.body;
+    if (!phones?.length) return res.status(400).json({ error: 'No phone numbers' });
+
+    const msg = customMessage || 'SafeSphere Emergency Alert!';
+    console.log(`\n🚨 Emergency dispatch → ${phones.join(', ')}`);
+    console.log(`📝 Message: ${msg.substring(0, 100)}...`);
+    console.log(`📡 Type: ${req.body.type}`);
+
+    let results = [];
+
+    if (req.body.type === 'whatsapp') {
+      // 🟢 TWILIO WHATSAPP
+      const twilio = require('twilio')(TWILIO_SID, TWILIO_TOKEN);
+      const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+      for (const phone of phones) {
+        const toClean = phone.replace(/[^0-9]/g, '');
+        const toE164 = toClean.startsWith('91') ? '+' + toClean : '+91' + toClean.slice(-10);
+        try {
+          const resp = await twilio.messages.create({
+            body: msg,
+            from: TWILIO_WHATSAPP_NUMBER,
+            to: `whatsapp:${toE164}`
+          });
+          console.log(`[WhatsApp] ✅ Sent to ${toE164}. SID: ${resp.sid}`);
+          results.push({ phone, status: 'whatsapp_success' });
+        } catch (e) {
+          console.log(`[WhatsApp] ❌ Failed for ${toE164}:`, e.message);
+          results.push({ phone, status: 'failed', error: e.message });
+        }
+      }
+    } else {
+      // 🔵 SMS DISPATCH (Twilio/Vonage/Fast2SMS)
+      results = await dispatchSMS(phones, msg);
+    }
+
+    const anySuccess = results.some(r => r.status.includes('success'));
+
+    console.log(`${anySuccess ? '✅' : '❌'} Results:`, JSON.stringify(results));
+    res.status(200).json({ success: anySuccess, results });
+
+  } catch (e) {
+    console.error('Fatal dispatch error:', e);
+    res.status(500).json({ error: e.message });
   }
 });
 
 app.post('/api/emergency/call', verifyToken, async (req, res) => {
-  try {
-    const { phones, message } = req.body;
+  res.json({ success: true, message: 'Call not implemented in hackathon mode' });
+});
 
-    if (!phones || !phones.length) {
-      return res.status(400).json({ error: 'No phone numbers provided' });
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    providers: {
+      vonage: !!VONAGE_API_KEY,
+      fast2sms: !!FAST2SMS_KEY,
+      twilio: !!TWILIO_FROM,
     }
-
-    console.log(`[Emergency Call] Received call request for ${phones.length} guardians from user ${req.user.uid}`);
-    
-    const results = [];
-
-    for (const phone of phones) {
-      const to = phone.startsWith('+') ? phone : `+91${phone.replace(/[^0-9]/g, '')}`;
-      if (!to || to === '+91') continue;
-
-      try {
-        console.log(`[Twilio] Attempting to call ${to}...`);
-        
-        // Use TwiML to speak the message
-        const twiml = `<Response><Say voice="alice" language="en-IN">${message || 'Emergency alert triggered. Please check the dashboard.'}</Say></Response>`;
-
-        const call = await twilioClient.calls.create({
-          twiml: twiml,
-          from: TWILIO_PHONE,
-          to: to
-        });
-        
-        console.log(`[Twilio] Call initiated successfully. SID: ${call.sid}`);
-        results.push({ phone: to, status: 'call_success', sid: call.sid });
-      } catch (callError) {
-        console.error(`[Twilio] Call failed for ${to}:`, callError.message);
-        results.push({ phone: to, status: 'failed', error: callError.message });
-      }
-    }
-
-    res.status(200).json({ success: true, results });
-
-  } catch (error) {
-    console.error("[Emergency Call] Fatal Server Error:", error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Secure Twilio Backend running on port ${PORT}`);
+  console.log(`\n🚀 SafeSphere Backend on port ${PORT}`);
+  console.log(`Providers: Vonage=${!!VONAGE_API_KEY} | Fast2SMS=${!!FAST2SMS_KEY} | Twilio=${!!TWILIO_FROM}`);
+  console.log(`Health: http://localhost:${PORT}/health\n`);
 });

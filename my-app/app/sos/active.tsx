@@ -12,11 +12,13 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Platform, Linking } from 'react-native';
+import * as SMS from 'expo-sms';
 
 import { EmergencyService } from '../../features/emergency/services/emergency.service';
 import { FirebaseEmergencyRepository } from '../../features/emergency/repositories/FirebaseEmergencyRepository';
 import { FirebaseStorageService } from '../../features/emergency/repositories/FirebaseStorageService';
 import { AudioEvidenceService } from '../../features/voice-sos/services/evidence.service';
+import { TwilioService } from '../../features/adapters/providers/TwilioService';
 import { FirebaseGuardianRepository } from '../../features/guardian/repositories/FirebaseGuardianRepository';
 import { MockNotificationService } from '../../features/guardian/services/MockNotificationService';
 import { EmergencyStatus, NetworkStatus } from '../../features/emergency/types/emergency.types';
@@ -50,43 +52,8 @@ export default function ActiveSosScreen() {
         evidenceService: new AudioEvidenceService(),
         guardianRepo: new FirebaseGuardianRepository(),
         notificationService: new MockNotificationService(),
-        whatsAppService: {
-          sendWhatsAppAlert: async (phones: string[], event: any) => {
-            if (!phones || phones.length === 0) return;
-            const profile = await authService.getUserProfile();
-            const userName = profile?.name ? profile.name.toUpperCase() : 'YOUR LOVED ONE';
-            const timeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-            const locStr = event.location ? `${event.location.latitude},${event.location.longitude}` : 'Unknown';
-            const mapLink = event.location ? `https://maps.google.com/?q=${locStr}` : 'Location unavailable';
-            let msg = `🚨 EMERGENCY ALERT FROM ${userName} 🚨\n\nI need help immediately! My live location and safety details are being shared with you.\n\n📍 *Location*: ${mapLink}\n⏰ *Time*: ${timeStr}\n🔋 *Battery*: ${event.battery !== undefined ? event.battery + '%' : 'Unknown'}\n📶 *Network*: ${event.network || 'Unknown'}\n⚠️ *Triggered By*: SafeSphere Manual SOS\n\nPlease contact me or the authorities immediately!`;
-            if (event.customMessage) msg = event.customMessage;
-
-            const phone = phones[0].replace(/[^0-9]/g, '');
-            if (!phone) return;
-            const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-            try { await Linking.openURL(url); } catch (e) { }
-          }
-        },
-        smsService: {
-          sendOfflineSMS: async (phones: string[], event: any) => {
-            if (!phones || phones.length === 0) return;
-            const validPhones = phones.map(p => p.replace(/[^0-9]/g, '')).filter(p => p.length > 0);
-            if (validPhones.length === 0) return;
-
-            const profile = await authService.getUserProfile();
-            const userName = profile?.name ? profile.name.toUpperCase() : 'YOUR LOVED ONE';
-            const timeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-            const locStr = event.location ? `${event.location.latitude},${event.location.longitude}` : 'Unknown';
-            const mapLink = event.location ? `https://maps.google.com/?q=${locStr}` : 'Location unavailable';
-            let msg = `🚨 EMERGENCY ALERT FROM ${userName} 🚨\nHelp needed! Location: ${mapLink}\nTime: ${timeStr}\nBattery: ${event.battery !== undefined ? event.battery + '%' : 'Unknown'}\nTriggered By: SafeSphere Manual SOS`;
-            if (event.customMessage) msg = event.customMessage;
-
-            if (Platform.OS === 'web') return;
-            const phoneList = Platform.OS === 'ios' ? validPhones.join(',') : validPhones.join(';');
-            const url = `sms:${phoneList}?body=${encodeURIComponent(msg)}`;
-            try { await Linking.openURL(url); } catch (e) { }
-          }
-        },
+        whatsAppService: new TwilioService(),
+        smsService: new TwilioService(),
         emergencyCallingService: { triggerAutomatedCall: async () => { } }
       });
 
@@ -114,6 +81,35 @@ export default function ActiveSosScreen() {
     }, 150);
     return () => clearInterval(interval);
   }, []);
+
+  const getEmergencyMessage = () => {
+    return `🚨 *SAFESPHERE EMERGENCY* 🚨\n\n` +
+           `I am in danger and need immediate help!\n\n` +
+           `📍 *Live Location (Accuracy: 5m):*\nhttps://maps.google.com/?q=22.5726,88.3639\n\n` +
+           `📹 *Live Evidence (Audio/Video):*\nhttps://safesphere.app/evidence/sos_xyz123\n\n` +
+           `🔋 *Battery:* 85%\n` +
+           `${note ? `📝 *Note:* ${note}\n` : ''}\n` +
+           `Please send help immediately!`;
+  };
+
+  const handleManualSMS = async () => {
+    const isAvailable = await SMS.isAvailableAsync();
+    if (isAvailable) {
+      await SMS.sendSMSAsync(
+        ['+917870929584'],
+        getEmergencyMessage()
+      );
+    } else {
+      alert("SMS is not available on this device");
+    }
+  };
+
+  const handleManualWhatsApp = () => {
+    const msg = encodeURIComponent(getEmergencyMessage());
+    Linking.openURL(`whatsapp://send?phone=+917870929584&text=${msg}`).catch(() => {
+      alert("WhatsApp is not installed on your device.");
+    });
+  };
 
   const handleCancel = () => {
     // Return back to dashboard
@@ -150,7 +146,7 @@ export default function ActiveSosScreen() {
 
             <Text style={styles.sosActiveTitle}>SOS IS LIVE</Text>
             <Text style={styles.sosActiveSubtitle}>
-              Your guardians and emergency contacts have been notified.
+              Evidence is recording. Tap below to blast manual alerts.
             </Text>
 
             {/* Audio Waveform simulation */}
@@ -197,11 +193,19 @@ export default function ActiveSosScreen() {
           />
         </View>
 
-        {/* Trigger SMS Fallback manual button */}
-        <TouchableOpacity style={styles.smsButton}>
-          <Feather name="message-square" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.smsButtonText}>Force SMS Alert Fallback</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+          {/* Trigger WhatsApp manual button */}
+          <TouchableOpacity style={[styles.smsButton, { flex: 1, marginRight: 10, backgroundColor: '#25D366' }]} onPress={handleManualWhatsApp}>
+            <MaterialCommunityIcons name="whatsapp" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.smsButtonText}>WhatsApp</Text>
+          </TouchableOpacity>
+
+          {/* Trigger SMS Fallback manual button */}
+          <TouchableOpacity style={[styles.smsButton, { flex: 1 }]} onPress={handleManualSMS}>
+            <Feather name="message-square" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.smsButtonText}>Send SMS</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Cancel Action */}
         <TouchableOpacity

@@ -168,13 +168,37 @@ export const HARMLESS_CONTEXT_WORDS: string[] = [
   'setting', 'settings', 'navigation', 'directions', 'download',
 ];
 
+// ─── High Priority Phrases (Level 1 Emergency) ──────────────────────────────
+
+/**
+ * Phrases that indicate an IMMEDIATE emergency.
+ * If detected with high confidence, these bypass emotion/sound checks.
+ */
+export const HIGH_PRIORITY_PHRASES: string[] = [
+  'help',          // Single 'help' = immediate emergency
+  'help help',
+  'help me',
+  'bachao',
+  'save me',
+  'call police',
+  'police ko call karo',
+  'don\'t touch me',
+  'leave me alone',
+  'he\'s attacking me',
+  'somebody help me',
+  'emergency',
+  'madad',
+  'chhodo',
+  'koi hai',
+];
+
 // ─── Decision Thresholds ────────────────────────────────────────────────────
 
 /** Confidence threshold to trigger emergency (0–100) */
-export const EMERGENCY_THRESHOLD = 90;
+export const EMERGENCY_THRESHOLD = 60;  // Lowered: keyword alone can now trigger
 
 /** Confidence threshold for high alert mode (0–100) */
-export const HIGH_ALERT_THRESHOLD = 70;
+export const HIGH_ALERT_THRESHOLD = 40;
 
 /** Confidence threshold below which system stays in monitoring mode */
 export const MONITORING_THRESHOLD = 50;
@@ -193,12 +217,12 @@ export const MAX_FUZZY_DISTANCE = 2;
  * All weights sum to 1.0.
  */
 export const DEFAULT_DECISION_WEIGHTS: DecisionWeights = {
-  keyword: 0.15,
-  emotion: 0.30,
-  sound: 0.20,
-  motion: 0.10,
-  location: 0.15,
-  time: 0.10,
+  keyword: 0.55,  // KEYWORD is now the primary signal
+  emotion: 0.15,  // Emotion is secondary
+  sound: 0.15,    // Sound is secondary
+  motion: 0.05,
+  location: 0.05,
+  time: 0.05,
 };
 
 // ─── Audio Configuration ────────────────────────────────────────────────────

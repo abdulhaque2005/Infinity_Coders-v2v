@@ -16,6 +16,7 @@ import {
   FALSE_ALARM_PHRASES,
   HARMLESS_CONTEXT_WORDS,
   HIGH_ALERT_THRESHOLD,
+  HIGH_PRIORITY_PHRASES,
 } from '../utils/constants';
 import { sosLogger } from '../utils/logger';
 
@@ -265,6 +266,12 @@ export class DecisionEngine {
       signals.timeScore > 50,
     ].filter(Boolean).length;
 
+    // HACKATHON OVERRIDE: For the demo, if keyword is detected with high confidence, trigger immediately
+    if (signals.keywordScore > 70) {
+      sosLogger.info(LOG_SOURCE, 'Hackathon override: Keyword detected, triggering immediately', { keywordScore: signals.keywordScore });
+      return 100; // Force trigger
+    }
+
     if (elevatedSignals < 2 && adjustedScore >= EMERGENCY_THRESHOLD) {
       // Cap at HIGH_ALERT if only one signal is elevated
       adjustedScore = Math.min(adjustedScore, HIGH_ALERT_THRESHOLD);
@@ -283,6 +290,27 @@ export class DecisionEngine {
     const textLower = (signals.speechText || '').toLowerCase();
     const keywordLower = (signals.detectedKeyword || '').toLowerCase();
     
+    // LEVEL 1: IMMEDIATE EMERGENCY (High Priority Phrases)
+    let isHighPriority = false;
+    if (textLower && signals.keywordScore > 50) {
+      for (const phrase of HIGH_PRIORITY_PHRASES) {
+        if (textLower.includes(phrase)) {
+          isHighPriority = true;
+          break;
+        }
+      }
+    }
+
+    if (isHighPriority) {
+      adjustedScore = 100;
+      sosLogger.info(LOG_SOURCE, 'Escalation bypass: LEVEL 1 - IMMEDIATE EMERGENCY triggered via high-priority phrase', {
+        speechText: textLower,
+        boostedScore: adjustedScore,
+      });
+      return adjustedScore;
+    }
+
+    // LEVEL 2: CONTEXT ANALYSIS (Standard Override Rule)
     let isRepeated = false;
     if (keywordLower && textLower) {
       const escapedKeyword = keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -316,16 +344,7 @@ export class DecisionEngine {
       sosLogger.info(LOG_SOURCE, 'Safeguard: false alarm context cap applied');
     }
 
-    // SAFEGUARD 3: Keyword-only detection (emotion and sound both low)
-    // should never exceed HIGH_ALERT
-    if (
-      signals.keywordScore > 70 &&
-      signals.emotionScore < 30 &&
-      signals.soundScore < 30
-    ) {
-      adjustedScore = Math.min(adjustedScore, HIGH_ALERT_THRESHOLD - 5);
-      sosLogger.info(LOG_SOURCE, 'Safeguard: keyword-only detection capped');
-    }
+    // (keyword-only safeguard removed — keyword alone is now sufficient for hackathon demo)
 
     // BOOST: If 3+ high alerts in a row, escalate faster
     // (genuine emergencies produce sustained signals)

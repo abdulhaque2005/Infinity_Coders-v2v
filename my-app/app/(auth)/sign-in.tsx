@@ -15,7 +15,7 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { useOAuth, useSignIn, useAuth, useClerk } from '@clerk/clerk-expo';
+import { useOAuth, useSignIn, useAuth } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -30,9 +30,7 @@ export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
   const { isSignedIn } = useAuth();
-  const { signOut } = useClerk();
 
-  // Agar session pehle se exist karti hai toh seedha home bhejo
   useEffect(() => {
     if (isSignedIn) {
       router.replace('/(drawer)/(tabs)/home');
@@ -54,7 +52,6 @@ export default function SignInScreen() {
       });
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
-        // InitialLayout ka useEffect redirect karega
       } else {
         Alert.alert('Login Failed', 'Please check your credentials and try again.');
       }
@@ -78,7 +75,6 @@ export default function SignInScreen() {
       const { createdSessionId, setActive: setActiveSession } = await startOAuthFlow();
       if (createdSessionId) {
         await setActiveSession!({ session: createdSessionId });
-        // InitialLayout ka useEffect redirect karega
       }
     } catch (error: any) {
       Alert.alert('Google Sign-In Error', error.errors?.[0]?.message || error.message);

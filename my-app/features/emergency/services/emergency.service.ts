@@ -21,6 +21,7 @@ import {
 } from '../../voice-sos/utils/constants';
 import { sosLogger } from '../../voice-sos/utils/logger';
 import * as Location from 'expo-location';
+import { Alert } from 'react-native';
 import { authService } from '../../../src/services/authService';
 
 import { IEmergencyRepository } from '../interfaces/IEmergencyRepository';
@@ -97,14 +98,13 @@ export class EmergencyService {
     timeline: TimelineEntry[];
   }): Promise<EmergencyEvent> {
     if (this.currentEmergency && this.currentEmergency.status === EmergencyStatus.EMERGENCY) {
-      sosLogger.info(LOG_SOURCE, 'Emergency already active. Updating evidence but skipping duplicate dispatch.');
-      return this.currentEmergency;
+      sosLogger.info(LOG_SOURCE, 'Emergency already active. HACKATHON MODE: Allowing duplicate dispatch for testing.');
+      // Proceed instead of returning early
     }
     
     if (this.isInCooldown()) {
-      sosLogger.warn(LOG_SOURCE, 'Emergency trigger in cooldown period, ignoring');
-      if (this.currentEmergency) return this.currentEmergency;
-      throw new Error('Emergency trigger in cooldown period');
+      sosLogger.warn(LOG_SOURCE, 'Emergency trigger in cooldown period, HACKATHON MODE: Ignoring cooldown.');
+      // Proceed instead of throwing error
     }
 
     this.emergencyCounter++;
@@ -139,177 +139,118 @@ export class EmergencyService {
   // ─── Automated Workflow Implementations ─────────────────────────────────
 
   private async buildAndDispatchCompletePayload(eventId: string, guardians: any[], event: EmergencyEvent) {
-    sosLogger.info(LOG_SOURCE, 'Building Complete Emergency Payload. Capturing initial 5-second evidence...');
+    sosLogger.info(LOG_SOURCE, '🚨 IMMEDIATE DISPATCH MODE: Sending SMS first, then collecting evidence...');
     
     const phones = guardians.map(g => g.phone).filter(p => p);
     
-    sosLogger.info(LOG_SOURCE, 'Selected Guardian Numbers for Dispatch:');
     guardians.forEach((g, i) => {
       if (g.phone) {
-        sosLogger.info(LOG_SOURCE, `Guardian ${i + 1}:\n${g.phone}`);
+        sosLogger.info(LOG_SOURCE, `Guardian ${i + 1}: ${g.phone}`);
       }
     });
 
     if (phones.length === 0) {
-      sosLogger.warn(LOG_SOURCE, 'No valid guardian numbers found! Dispatch aborted.');
-      return;
+      sosLogger.warn(LOG_SOURCE, 'No guardian registered.');
+      Alert.alert(
+        "No Guardian Registered", 
+        "Please add at least one trusted guardian in your profile before using AI SOS."
+      );
+      return; // Nothing to dispatch
     }
 
-
-    let userName = "Your Loved One";
+    let userName = "SafeSphere User";
     try {
       const userProfile = await authService.getUserProfile();
       if (userProfile && userProfile.fullName) {
         userName = userProfile.fullName;
       }
     } catch (e) {
-      sosLogger.warn(LOG_SOURCE, 'Could not fetch user profile for real name', { error: String(e) });
+      // ignore
     }
 
-    // 🔴 PARALLEL EXECUTION: GPS RETRY AND FAST EVIDENCE (5 SECONDS)
-    const gpsPromise = (async () => {
-      let gpsAttempts = 0;
-      sosLogger.info(LOG_SOURCE, 'Starting GPS acquisition loop (30s max)...');
-      while (gpsAttempts < 15) { // 15 attempts * 2s = 30s
-        try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          sosLogger.info(LOG_SOURCE, 'GPS acquired successfully.');
-          return loc;
-        } catch (error) {
-          gpsAttempts++;
-          await new Promise(res => setTimeout(res, 2000));
-        }
-      }
-      sosLogger.warn(LOG_SOURCE, 'GPS acquisition failed after 30 seconds.');
-      return null;
-    })();
-
-    const fastEvidencePromise = (async () => {
-      let audioUrl = '';
-      let videoUrl = '';
-      let attempts = 0;
-
-      // Loop until BOTH Audio and Video URLs are valid
-      while ((!audioUrl || !videoUrl) && attempts < 50) {
-        attempts++;
-        try {
-          sosLogger.info(LOG_SOURCE, `Fast Evidence Collection Attempt ${attempts}...`);
-          
-          // Only record 5 seconds for the first payload so dispatch is fast
-          const evidencePromises = [this.deps.evidenceService.recordEvidence(5000)];
-          if (this.deps.evidenceService.recordVideoEvidence) {
-            evidencePromises.push(this.deps.evidenceService.recordVideoEvidence(5000));
-          } else {
-            evidencePromises.push(Promise.resolve(null));
-          }
-          
-          const [audioUri, videoUri] = await Promise.all(evidencePromises);
-
-          const uploadPromises = [];
-          if (audioUri && !audioUrl) uploadPromises.push(this.deps.storageService.uploadEvidence(eventId, `audio_initial_${Date.now()}.m4a`, audioUri, 'audio').then(url => { audioUrl = url; }));
-          if (videoUri && !videoUrl) uploadPromises.push(this.deps.storageService.uploadEvidence(eventId, `video_initial_${Date.now()}.mp4`, videoUri, 'video').then(url => { videoUrl = url; }));
-
-          await Promise.all(uploadPromises);
-          
-          if (audioUrl && videoUrl) {
-            sosLogger.info(LOG_SOURCE, 'Fast Evidence uploaded successfully. Updating Emergency Dashboard...');
-            await this.deps.emergencyRepo.updateEmergencySession(eventId, {
-              audioUrl: audioUrl,
-              videoUrl: videoUrl,
-            });
-            break; // Success!
-          } else {
-             throw new Error('Upload complete but URLs are still missing.');
-          }
-        } catch (error) {
-          sosLogger.warn(LOG_SOURCE, `Fast Evidence collection failed on attempt ${attempts}, retrying...`, { error });
-          await new Promise(res => setTimeout(res, 2000));
-        }
-      }
-      return { audioUrl, videoUrl, isSuccess: !!(audioUrl && videoUrl) };
-    })();
-
-    // 🔴 WAIT FOR BOTH GPS AND FAST EVIDENCE TO COMPLETE BEFORE DISPATCHING
-    const [gpsResult, evidenceResult] = await Promise.all([gpsPromise, fastEvidencePromise]);
-
-    // 🔴 FALLBACK RESOLUTION FOR GPS
+    // ─── Step 1: Get GPS quickly (5s timeout max) ─────────────────────────
     let finalLat: string | number = 'Unknown';
     let finalLng: string | number = 'Unknown';
-    let finalMapLink = 'Unknown Location';
-    let finalAddress = 'Unknown Location';
+    let finalMapLink = 'Location unavailable';
+    let finalAddress = 'Location unavailable';
 
-    if (gpsResult) {
-      finalLat = gpsResult.coords.latitude;
-      finalLng = gpsResult.coords.longitude;
-      finalMapLink = `https://maps.google.com/?q=${finalLat},${finalLng}`;
-      finalAddress = `Approximate Location near ${finalLat}, ${finalLng}`;
-    } else if (event.location) {
-      finalLat = event.location.latitude;
-      finalLng = event.location.longitude;
-      finalMapLink = `https://maps.google.com/?q=${finalLat},${finalLng}`;
-      finalAddress = `Last Known Location near ${finalLat}, ${finalLng}`;
+    try {
+      const loc = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
+        new Promise<null>(res => setTimeout(() => res(null), 5000))
+      ]) as any;
+      
+      if (loc && loc.coords) {
+        finalLat = loc.coords.latitude;
+        finalLng = loc.coords.longitude;
+        finalMapLink = `https://maps.google.com/?q=${finalLat},${finalLng}`;
+        finalAddress = `Near ${finalLat.toFixed(5)}, ${finalLng.toFixed(5)}`;
+      } else if (event.location) {
+        finalLat = event.location.latitude;
+        finalLng = event.location.longitude;
+        finalMapLink = `https://maps.google.com/?q=${finalLat},${finalLng}`;
+        finalAddress = `Near ${finalLat}, ${finalLng}`;
+      }
+    } catch {
+      if (event.location) {
+        finalLat = event.location.latitude;
+        finalLng = event.location.longitude;
+        finalMapLink = `https://maps.google.com/?q=${finalLat},${finalLng}`;
+        finalAddress = `Near ${finalLat}, ${finalLng}`;
+      }
     }
 
-    // 🔴 EXACT PAYLOAD FORMAT AS REQUESTED
+    // ─── Step 2: Build immediate message ──────────────────────────────────
     const timeStr = new Date(event.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-    const detectedConditions = event.keyword ? `Wake word "${event.keyword}"` : 'Suspicious activity';
+    const detectedConditions = event.keyword ? `Wake word "${event.keyword}" detected` : 'Emergency triggered';
     
-    let msg = `🚨 *SAFESPHERE EMERGENCY ALERT* 🚨\n\n`;
-    msg += `*User Name:* ${userName}\n`;
-    msg += `*Emergency Status:* CRITICAL - DANGER DETECTED\n\n`;
-    msg += `📍 *Current Address:* ${finalAddress}\n`;
-    msg += `🗺️ *Google Maps Link:* ${finalMapLink}\n`;
-    msg += `🔋 *Battery Percentage:* ${event.battery !== undefined ? Math.round((event.battery <= 1 ? event.battery * 100 : event.battery)) + '%' : 'Unknown'}\n`;
-    msg += `📶 *Network Status:* ${event.network || 'Unknown'}\n`;
-    msg += `⏰ *Current Time:* ${timeStr}\n`;
-    msg += `🧠 *AI Confidence Score:* ${event.confidenceScore}%\n`;
-    msg += `⚠️ *Triggered Conditions:* ${detectedConditions}\n\n`;
-    msg += `🛡️ *EMERGENCY DASHBOARD URL:*\nhttps://safesphere.app/track/${eventId}\n\n`;
-    msg += `🎙️ *Audio Evidence URL:* ${evidenceResult.audioUrl}\n`;
-    msg += `📹 *Video Evidence URL:* ${evidenceResult.videoUrl}\n\n`;
-    msg += `Please monitor the dashboard immediately.`;
+    let msg = `🚨 SAFESPHERE EMERGENCY ALERT 🚨\n\n`;
+    msg += `User: ${userName}\n`;
+    msg += `Status: CRITICAL - DANGER DETECTED\n\n`;
+    msg += `📍 Location: ${finalAddress}\n`;
+    msg += `🗺️ Map: ${finalMapLink}\n`;
+    msg += `🔋 Battery: ${event.battery !== undefined ? Math.round((event.battery <= 1 ? event.battery * 100 : event.battery)) + '%' : 'Unknown'}\n`;
+    msg += `⏰ Time: ${timeStr}\n`;
+    msg += `🧠 AI Confidence: ${event.confidenceScore}%\n`;
+    msg += `⚠️ Trigger: ${detectedConditions}\n\n`;
+    msg += `Please call/check on them immediately!`;
 
     const emergencyPayload = {
-      userName: userName,
+      userName,
       emergencyStatus: "CRITICAL - DANGER DETECTED",
       currentAddress: finalAddress,
       googleMapsLink: finalMapLink,
-      batteryPercentage: event.battery !== undefined ? Math.round((event.battery <= 1 ? event.battery * 100 : event.battery)).toString() + '%' : 'Unknown',
-      networkStatus: event.network || 'Unknown',
       currentTime: timeStr,
       aiConfidenceScore: event.confidenceScore.toString(),
       triggeredConditions: detectedConditions,
-      emergencyDashboardUrl: `https://safesphere.app/track/${eventId}`,
-      audioEvidenceUrl: evidenceResult.audioUrl,
-      videoEvidenceUrl: evidenceResult.videoUrl,
     };
 
-    if (phones.length > 0) {
-      sosLogger.info(LOG_SOURCE, 'Dispatching INITIAL Emergency Payload to guardians via Twilio APIs...');
-      
-      const payloadEvent = { ...event, payload: emergencyPayload, customMessage: msg } as any;
+    // ─── Step 3: DISPATCH IMMEDIATELY ─────────────────────────────────────
+    sosLogger.info(LOG_SOURCE, '📤 Dispatching IMMEDIATE SMS/WhatsApp to guardians NOW...');
+    
+    const payloadEvent = { ...event, payload: emergencyPayload, customMessage: msg } as any;
 
-      const results = await Promise.allSettled([
-        this.deps.notificationService.sendEmergencyAlert(guardians, payloadEvent),
-        this.deps.whatsAppService.sendWhatsAppAlert(phones, payloadEvent),
-        this.deps.smsService.sendOfflineSMS(phones, payloadEvent),
-        this.deps.emergencyCallingService.triggerAutomatedCall(phones, 'EMERGENCY ALERT. Complete evidence and location are available on the Emergency Dashboard.')
-      ]);
-      
-      sosLogger.info(LOG_SOURCE, '✅ Initial Emergency Payload Dispatched Successfully.', { results });
-    }
+    const results = await Promise.allSettled([
+      this.deps.notificationService.sendEmergencyAlert(guardians, payloadEvent),
+      this.deps.whatsAppService.sendWhatsAppAlert(phones, payloadEvent),
+      this.deps.smsService.sendOfflineSMS(phones, payloadEvent),
+    ]);
+    
+    sosLogger.info(LOG_SOURCE, '✅ IMMEDIATE Dispatch complete!', { results });
 
-    // 🔴 CONTINUOUS BACKGROUND EVIDENCE LOOP (Detached)
-    this.startContinuousEvidenceLoop(eventId);
+    // ─── Step 4: Collect evidence in background (non-blocking) ────────────
+    this.startContinuousEvidenceLoop(eventId, guardians, phones, event, userName);
   }
 
-  private startContinuousEvidenceLoop(eventId: string) {
-    sosLogger.info(LOG_SOURCE, 'Starting Continuous Background Evidence Loop (No WhatsApp Duplicates)...');
+
+
+  private startContinuousEvidenceLoop(eventId: string, guardians: any[], phones: string[], event: EmergencyEvent, userName: string) {
+    sosLogger.info(LOG_SOURCE, 'Starting Continuous Background Evidence Loop (With 15-sec SMS Updates)...');
     
     // Detached promise, continuously records and uploads chunks while emergency is active
     (async () => {
       let chunkIndex = 1;
-      while (this.currentEmergency && this.currentEmergency.status === EmergencyStatus.EMERGENCY) {
+      while (this.currentEmergency && this.currentEmergency.status === EmergencyStatus.EMERGENCY && chunkIndex <= 5) {
         try {
           sosLogger.info(LOG_SOURCE, `Recording background evidence chunk ${chunkIndex}...`);
           
@@ -331,15 +272,32 @@ export class EmergencyService {
 
           await Promise.all(uploadPromises);
           
-          // Update Dashboard only. Do NOT trigger Twilio/WhatsApp
+          // Update Dashboard AND trigger Twilio/WhatsApp as per Hackathon request
           if (this.currentEmergency && this.currentEmergency.status === EmergencyStatus.EMERGENCY) {
-             sosLogger.info(LOG_SOURCE, `Chunk ${chunkIndex} uploaded. Updating Dashboard...`);
+             sosLogger.info(LOG_SOURCE, `Chunk ${chunkIndex} uploaded. Updating Dashboard and blasting 15-sec SMS...`);
              await this.deps.emergencyRepo.updateEmergencySession(eventId, {
                 [`evidenceChunks.chunk${chunkIndex}`]: { audioUrl, videoUrl, timestamp: Date.now() },
                 // Also update the main pointers to the latest chunk for convenience
                 latestAudioUrl: audioUrl || null,
                 latestVideoUrl: videoUrl || null,
              });
+
+             // 🔴 SEND 15-SECOND REPEATED SMS/WHATSAPP ALERTS
+             if (phones.length > 0) {
+                const timeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+                let updateMsg = `🚨 *SAFESPHERE 15-SEC UPDATE* 🚨\n\n`;
+                updateMsg += `*User:* ${userName}\n`;
+                updateMsg += `*Status:* STILL IN DANGER\n`;
+                updateMsg += `⏰ *Time:* ${timeStr}\n\n`;
+                if (audioUrl) updateMsg += `🎙️ *New Audio (Last 15s):* ${audioUrl}\n`;
+                if (videoUrl) updateMsg += `📹 *New Video (Last 15s):* ${videoUrl}\n`;
+
+                const updatePayloadEvent = { ...event, customMessage: updateMsg } as any;
+
+                // Fire SMS/WhatsApp continuously
+                this.deps.whatsAppService.sendWhatsAppAlert(phones, updatePayloadEvent).catch(e => sosLogger.warn(LOG_SOURCE, '15-sec WhatsApp failed', e));
+                this.deps.smsService.sendOfflineSMS(phones, updatePayloadEvent).catch(e => sosLogger.warn(LOG_SOURCE, '15-sec SMS failed', e));
+             }
           }
           chunkIndex++;
         } catch (error) {

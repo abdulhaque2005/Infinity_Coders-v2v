@@ -1,40 +1,37 @@
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@/src/clerk";
-
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "react-native-reanimated";
 import { useEffect } from "react";
-
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
-// Auth guard: session ke hisaab se redirect karta hai
+// Auth guard: Clerk session ke hisaab se redirect karta hai
 function InitialLayout() {
   const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoaded) return; // Wait for Clerk to load
+    if (!isLoaded) return;
 
     const inAuthGroup = segments[0] === "(auth)";
     const inDrawerGroup = segments[0] === "(drawer)";
 
     if (isSignedIn && inAuthGroup) {
-      // User signed in hai lekin auth pages par hai — home bhejo
+      // Login ho gaya — home bhejo
       router.replace("/(drawer)/(tabs)/home");
     } else if (!isSignedIn && inDrawerGroup) {
-      // User signed out hai lekin protected pages par hai — sign-in bhejo
+      // Logged out — sign-in bhejo
       router.replace("/(auth)/sign-in");
     }
   }, [isLoaded, isSignedIn, segments]);
 
   if (!isLoaded) {
-    // Clerk load ho raha hai — blank screen dikhao (no flash)
     return null;
   }
 
@@ -61,10 +58,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}
-    >
+    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <SafeAreaProvider>
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <InitialLayout />

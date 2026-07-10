@@ -8,7 +8,7 @@ import { WakeWordService } from '../services/wakeword.service';
 
 import { FirebaseEmergencyRepository } from '../../emergency/repositories/FirebaseEmergencyRepository';
 import { FirebaseGuardianRepository } from '../../guardian/repositories/FirebaseGuardianRepository';
-import { FirebaseStorageService } from '../../emergency/repositories/FirebaseStorageService';
+import { MockStorageService } from '../../emergency/services/MockStorageService';
 import { AudioEvidenceService } from '../services/evidence.service';
 import { MockNotificationService } from '../../guardian/services/MockNotificationService';
 import { TwilioService } from '../../adapters/providers/TwilioService';
@@ -40,7 +40,7 @@ export class ServiceLocator {
 
     this.emergency = new EmergencyService({
       emergencyRepo: new FirebaseEmergencyRepository(),
-      storageService: new FirebaseStorageService(),
+      storageService: new MockStorageService(),
       evidenceService: new AudioEvidenceService(),
       guardianRepo: new FirebaseGuardianRepository(),
       notificationService: new MockNotificationService(),

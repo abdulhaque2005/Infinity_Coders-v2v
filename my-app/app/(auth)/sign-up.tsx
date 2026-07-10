@@ -16,8 +16,11 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { useOAuth, useSignUp } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
+import { authService } from '@/src/services/authService';
+import { GOOGLE_CLIENT_IDS } from '@/src/config/firebaseConfig';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -29,8 +32,20 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { signUp, isLoaded } = useSignUp();
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+  const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_CLIENT_IDS.webClientId,
+    responseType: 'id_token',
+    redirectUri: AuthSession.makeRedirectUri(),
+  });
+
+  React.useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const { id_token } = googleResponse.params;
+      authService.loginWithGoogleCredential(id_token).catch((e: any) => {
+        Alert.alert('Google Sign-In Failed', e.message);
+      });
+    }
+  }, [googleResponse]);
 
   const handleSignUp = () => {
     if (!email || !password || !fullName) {
@@ -45,15 +60,7 @@ export default function SignUpScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    try {
-      const { createdSessionId, setActive } = await startOAuthFlow();
-      if (createdSessionId) {
-        await setActive!({ session: createdSessionId });
-        // InitialLayout ka useEffect redirect karega
-      }
-    } catch (error: any) {
-      Alert.alert('Google Sign-In Error', error.errors?.[0]?.message || error.message);
-    }
+    googlePromptAsync();
   };
 
   return (

@@ -1,6 +1,6 @@
 import React from 'react';
-import { useAuth } from "@clerk/clerk-expo";
 import { useEffect } from "react";
+import { useAuth } from "@clerk/clerk-expo";
 import {
   StyleSheet,
   View,

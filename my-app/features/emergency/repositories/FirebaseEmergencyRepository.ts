@@ -10,11 +10,15 @@ export class FirebaseEmergencyRepository implements IEmergencyRepository {
   async createEmergencySession(event: EmergencyEvent): Promise<void> {
     try {
       const emergencyRef = doc(db, 'emergencies', event.id);
-      await setDoc(emergencyRef, {
+      
+      // Clean undefined fields to prevent Firestore crashes
+      const cleanEvent = JSON.parse(JSON.stringify({
         ...event,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
+      }));
+
+      await setDoc(emergencyRef, cleanEvent);
       sosLogger.info(LOG_SOURCE, `Created real emergency session in Firestore: ${event.id}`);
     } catch (error) {
       sosLogger.warn(LOG_SOURCE, 'Failed to create emergency session in Firestore', { error });
@@ -24,12 +28,14 @@ export class FirebaseEmergencyRepository implements IEmergencyRepository {
   async updateEmergencySession(id: string, updates: Partial<EmergencyEvent>): Promise<void> {
     try {
       const emergencyRef = doc(db, 'emergencies', id);
-      // CRITICAL FIX: Use setDoc with merge: true to avoid 'No document to update' errors
-      // if the background update happens before the initial create finishes.
-      await setDoc(emergencyRef, {
+      
+      const cleanUpdates = JSON.parse(JSON.stringify({
         ...updates,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      }));
+
+      // CRITICAL FIX: Use setDoc with merge: true to avoid 'No document to update' errors
+      await setDoc(emergencyRef, cleanUpdates, { merge: true });
       sosLogger.info(LOG_SOURCE, `Updated emergency session in Firestore: ${id}`);
     } catch (error) {
       sosLogger.warn(LOG_SOURCE, 'Failed to update emergency session in Firestore', { error: String(error) });
