@@ -99,9 +99,17 @@ export function useVoiceDetection(options: UseVoiceDetectionOptions = {}) {
           // Open WhatsApp with the first contact
           const phone = phones[0].replace(/[^0-9]/g, '');
           if (!phone) return;
-          const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+          
+          let url = '';
+          if (Platform.OS === 'web') {
+            url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+          } else {
+            url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+          }
+          
           try {
             await Linking.openURL(url);
+            sosLogger.info(LOG_SOURCE, 'WhatsApp triggered successfully');
           } catch(e) {
             console.log('WhatsApp not installed or error:', e);
           }
@@ -116,10 +124,16 @@ export function useVoiceDetection(options: UseVoiceDetectionOptions = {}) {
           const locStr = event.location ? `${event.location.latitude},${event.location.longitude}` : 'Unknown';
           const msg = `🚨 EMERGENCY SOS! I need help immediately. My location: https://maps.google.com/?q=${locStr}`;
           
+          if (Platform.OS === 'web') {
+            console.log('SMS fallback for web: Cannot send native SMS from browser. Message:', msg);
+            return;
+          }
+          
           const phoneList = Platform.OS === 'ios' ? validPhones.join(',') : validPhones.join(';');
           const url = `sms:${phoneList}?body=${encodeURIComponent(msg)}`;
           try {
             await Linking.openURL(url);
+            sosLogger.info(LOG_SOURCE, 'SMS triggered successfully');
           } catch(e) {
             console.log('SMS error:', e);
           }
