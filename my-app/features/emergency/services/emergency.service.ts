@@ -142,6 +142,19 @@ export class EmergencyService {
     sosLogger.info(LOG_SOURCE, 'Building Complete Emergency Payload. Capturing initial 5-second evidence...');
     
     const phones = guardians.map(g => g.phone).filter(p => p);
+    
+    sosLogger.info(LOG_SOURCE, 'Selected Guardian Numbers for Dispatch:');
+    guardians.forEach((g, i) => {
+      if (g.phone) {
+        sosLogger.info(LOG_SOURCE, `Guardian ${i + 1}:\n${g.phone}`);
+      }
+    });
+
+    if (phones.length === 0) {
+      sosLogger.warn(LOG_SOURCE, 'No valid guardian numbers found! Dispatch aborted.');
+      return;
+    }
+
 
     let userName = "Your Loved One";
     try {

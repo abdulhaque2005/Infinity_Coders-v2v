@@ -45,6 +45,9 @@ import {
   Menu,
   AlertOctagon,
 } from 'lucide-react-native';
+import { auth } from '../../../src/config/firebaseConfig';
+import { FirebaseGuardianRepository } from '@/features/guardian/repositories/FirebaseGuardianRepository';
+
 
 const COLORS = {
   bg: '#EBF0F9', // Matched to the image's cool blue-gray
@@ -471,9 +474,20 @@ export default function HomeScreen() {
             </NeumorphicInset>
             <Text style={styles.quickDialText}>Ambulance</Text>
           </Pressable>
-          <Pressable style={styles.quickDialItem} onPress={() => {
+          <Pressable style={styles.quickDialItem} onPress={async () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            Linking.openURL('tel:9999999999');
+            const user = auth.currentUser;
+            if (user) {
+               const repo = new FirebaseGuardianRepository();
+               const guardians = await repo.getRegisteredGuardians(user.uid);
+               if (guardians.length > 0 && guardians[0].phone) {
+                  Linking.openURL(`tel:${guardians[0].phone}`);
+               } else {
+                  Alert.alert('No Guardian', 'Please register a guardian in your profile to use quick dial.');
+               }
+            } else {
+               Alert.alert('Not Logged In', 'Please log in to use this feature.');
+            }
           }}>
             <NeumorphicInset rounded={24} padding={14} style={styles.quickDialIcon}>
               <Phone size={22} color={COLORS.purplePrimary} />

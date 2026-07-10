@@ -47,6 +47,8 @@ export class DecisionEngine {
   private weights: DecisionWeights;
   private lastDecision: DecisionResult | null = null;
   private consecutiveHighAlerts: number = 0;
+  private keywordHistory: number[] = [];
+
 
   constructor(weights: DecisionWeights = DEFAULT_DECISION_WEIGHTS) {
     this.weights = weights;
@@ -71,7 +73,13 @@ export class DecisionEngine {
       detectedKeyword: signals.detectedKeyword,
     });
 
+    if (signals.keywordScore > 50) {
+      this.keywordHistory.push(Date.now());
+      this.keywordHistory = this.keywordHistory.filter(t => Date.now() - t <= 10000);
+    }
+
     // Step 1: Check for false alarm context FIRST
+
     const isFalseAlarm = this.checkFalseAlarm(
       signals.detectedKeyword,
       signals.speechText
@@ -285,7 +293,13 @@ export class DecisionEngine {
       }
     }
 
+    // Fallback: If STT fails, check if the wake word was detected repeatedly in a short time window (e.g., last 10 seconds)
+    if (!isRepeated && this.keywordHistory.length >= 2) {
+      isRepeated = true;
+    }
+
     if (isRepeated && signals.keywordScore > 80 && (signals.emotionScore > 80 || signals.soundScore > 80)) {
+
       adjustedScore = Math.max(adjustedScore, 100); // Force to 100
       sosLogger.info(LOG_SOURCE, 'Escalation bypass: EXTREME DISTRESS OVERRIDE applied', {
         keywordScore: signals.keywordScore,

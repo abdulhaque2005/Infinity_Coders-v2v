@@ -37,6 +37,7 @@ import { MockNotificationService } from '../../guardian/services/MockNotificatio
 import { TwilioService } from '../../adapters/providers/TwilioService';
 import { TwilioCallService } from '../../adapters/providers/TwilioCallService';
 import { Linking } from 'react-native';
+import { ServiceLocator } from '../utils/ServiceLocator';
 
 const LOG_SOURCE = 'useVoiceDetection';
 
@@ -83,24 +84,8 @@ export function useVoiceDetection(options: UseVoiceDetectionOptions = {}) {
 
   // ─── Service Refs ─────────────────────────────────────────────────────
 
-  const services = useRef({
-    mic: new MicrophoneService(),
-    wakeWord: new WakeWordService(),
-    speech: new SpeechService(),
-    emotion: new EmotionService(),
-    sound: new SoundService(),
-    decision: new DecisionEngine(),
-    emergency: new EmergencyService({
-      emergencyRepo: new FirebaseEmergencyRepository(),
-      storageService: new FirebaseStorageService(),
-      evidenceService: new AudioEvidenceService(),
-      guardianRepo: new FirebaseGuardianRepository(),
-      notificationService: new MockNotificationService(),
-      whatsAppService: new TwilioService(),
-      smsService: new TwilioService(),
-      emergencyCallingService: new TwilioCallService()
-    }),
-  });
+  const services = useRef(ServiceLocator.getInstance());
+
 
   const unsubscribeChunkRef = useRef<(() => void) | null>(null);
   const unsubscribeEmergencyRef = useRef<(() => void) | null>(null);

@@ -83,7 +83,14 @@ export class SpeechService {
       }
 
       // Step 3: Perform speech-to-text
-      const result = await this.performSTT(processedSamples, buffer.sampleRate);
+      let result = await this.performSTT(processedSamples, buffer.sampleRate);
+
+      // Retry mechanism if STT is unavailable or yields no text
+      if (!result.text) {
+        sosLogger.debug(LOG_SOURCE, 'STT failed or unavailable, retrying speech recognition...');
+        result = await this.performSTT(processedSamples, buffer.sampleRate);
+      }
+
 
       sosLogger.info(LOG_SOURCE, 'Transcription complete', {
         text: result.text,

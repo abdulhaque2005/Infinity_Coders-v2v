@@ -27,10 +27,11 @@ export class TwilioService implements IWhatsAppService, ISMSService {
     try {
       const user = auth.currentUser;
       if (!user) {
-         sosLogger.warn(LOG_SOURCE, 'No authenticated user found. Backend request may fail if strict verification is on.');
+         sosLogger.warn(LOG_SOURCE, 'No authenticated user found. Aborting secure dispatch.');
+         return;
       }
       
-      const idToken = user ? await user.getIdToken() : 'mock_token_for_unauthenticated_state';
+      const idToken = await user.getIdToken();
 
       const response = await fetch(`${BACKEND_URL}/api/emergency/dispatch`, {
         method: 'POST',
@@ -93,7 +94,11 @@ export class TwilioService implements IWhatsAppService, ISMSService {
     // Backend Fallback for SMS
     try {
       const user = auth.currentUser;
-      const idToken = user ? await user.getIdToken() : 'mock_token_for_unauthenticated_state';
+      if (!user) {
+         sosLogger.warn(LOG_SOURCE, 'No authenticated user found. Aborting secure SMS dispatch.');
+         return;
+      }
+      const idToken = await user.getIdToken();
 
       const response = await fetch(`${BACKEND_URL}/api/emergency/dispatch`, {
         method: 'POST',
