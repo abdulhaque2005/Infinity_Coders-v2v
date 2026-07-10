@@ -184,7 +184,7 @@ export class EmergencyService {
         finalLat = loc.coords.latitude;
         finalLng = loc.coords.longitude;
         finalMapLink = `https://maps.google.com/?q=${finalLat},${finalLng}`;
-        finalAddress = `Near ${finalLat.toFixed(5)}, ${finalLng.toFixed(5)}`;
+        finalAddress = `Near ${Number(finalLat).toFixed(5)}, ${Number(finalLng).toFixed(5)}`;
       } else if (event.location) {
         finalLat = event.location.latitude;
         finalLng = event.location.longitude;

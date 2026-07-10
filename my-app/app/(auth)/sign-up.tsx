@@ -16,6 +16,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { auth } from '@/src/config/firebaseConfig';
+import { useOAuth } from '@clerk/clerk-expo';
+import * as Linking from 'expo-linking';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -24,6 +26,23 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const { createdSessionId, setActive: setActiveSession } = await startOAuthFlow({
+        redirectUrl: Linking.createURL('/oauth-native-callback', { scheme: 'myapp' }),
+      });
+      if (createdSessionId) {
+        await setActiveSession!({ session: createdSessionId });
+      }
+    } catch (error: any) {
+      Alert.alert('Google Sign-In Error', error.errors?.[0]?.message || error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const handleSignUp = () => {
@@ -153,10 +172,17 @@ export default function SignUpScreen() {
         {/* Google Button */}
         <TouchableOpacity
           style={styles.socialButton}
-          onPress={() => Alert.alert('Coming Soon', 'Google Sign-In will be available soon.')}
+          onPress={handleGoogleSignIn}
+          disabled={loading}
         >
-          <Ionicons name="logo-google" size={18} color="#EA4335" style={styles.socialIcon} />
-          <Text style={styles.socialButtonText}>Continue with Google</Text>
+          {loading ? (
+            <ActivityIndicator color="#F34E62" />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={18} color="#EA4335" style={styles.socialIcon} />
+              <Text style={styles.socialButtonText}>Continue with Google</Text>
+            </>
+          )}
         </TouchableOpacity>
 
         {/* Footer */}

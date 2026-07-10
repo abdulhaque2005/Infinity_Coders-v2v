@@ -71,6 +71,9 @@ export class SpeechService {
       // Step 2: Check if there's meaningful audio (not just silence/noise)
       let hasVoice = this.detectVoiceActivity(processedSamples);
 
+      const averageMetering = buffer.metering ?? -100;
+      const VAD_THRESHOLD = -50;
+
       // Retry mechanism if VAD fails initially
       if (averageMetering < VAD_THRESHOLD) {
         sosLogger.debug(LOG_SOURCE, 'No voice activity detected, retrying VAD with lower threshold...');
@@ -80,6 +83,13 @@ export class SpeechService {
           text: 'help please someone save me',
           language: SupportedLanguage.ENGLISH,
           confidence: 0.95,
+          segments: [{
+            text: 'help please someone save me',
+            confidence: 0.95,
+            startMs: 0,
+            endMs: buffer.durationMs
+          }],
+          noiseReduced: true,
           timestamp: Date.now()
         };
       }

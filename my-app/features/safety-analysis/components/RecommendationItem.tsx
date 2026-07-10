@@ -26,7 +26,7 @@ export const RecommendationItem: React.FC<RecommendationItemProps> = ({ item, on
         break;
       case 'share_now':
         // Navigate to existing live tracking
-        router.push('/(drawer)/(tabs)/live-tracking');
+        router.push('/(drawer)/live-tracking');
         break;
     }
   };

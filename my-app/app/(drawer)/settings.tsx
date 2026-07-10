@@ -4,8 +4,7 @@ import { DrawerToggleButton } from '@react-navigation/drawer';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { authService } from '../../src/services/authService';
-import { auth } from '../../src/config/firebaseConfig';
-import { signOut } from 'firebase/auth';
+import { useAuth } from '@clerk/clerk-expo';
 
 const COLORS = {
   bg: '#EBF0F9',
@@ -27,6 +26,7 @@ const NeumorphicCard = ({ children, style }: any) => (
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { signOut: clerkSignOut } = useAuth();
   const [preferences, setPreferences] = useState({
     pushEnabled: true,
     smsEnabled: true,
@@ -70,7 +70,7 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await signOut(auth);
+            await clerkSignOut();
             router.replace('/(auth)/sign-in');
           } catch (error) {
             Alert.alert('Error', 'Failed to log out');

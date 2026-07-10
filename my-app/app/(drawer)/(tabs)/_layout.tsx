@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import React from 'react';
 import {
     View,
@@ -27,6 +27,10 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                     const isSOS = route.name === 'sos-placeholder';
 
                     const onPress = () => {
+                        if (isSOS) {
+                            router.push('/sos/active');
+                            return;
+                        }
                         const event = navigation.emit({
                             type: 'tabPress',
                             target: route.key,
@@ -56,14 +60,14 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
                     // ── Regular tab ───────────────────────────────────────────────────
                     const label =
-                        route.name === 'home'
+                        route.name === 'home' || route.name === 'home/index'
                             ? 'Home'
-                            : route.name === 'navigate'
+                            : route.name === 'navigate' || route.name === 'navigate/index'
                                 ? 'Navigate'
                                 : route.name;
 
                     const Icon =
-                        route.name === 'home'
+                        route.name === 'home' || route.name === 'home/index'
                             ? Home
                             : Navigation;
 
@@ -97,12 +101,9 @@ export default function TabsLayout() {
             tabBar={(props) => <CustomTabBar {...props} />}
             screenOptions={{ headerShown: false }}
         >
-            <Tabs.Screen name="home" />
+            <Tabs.Screen name="home/index" />
             <Tabs.Screen name="sos-placeholder" />
-            <Tabs.Screen name="navigate" />
-            {/* Hidden from tab bar */}
-            <Tabs.Screen name="live-tracking" options={{ href: null }} />
-            <Tabs.Screen name="safety-analysis" options={{ href: null }} />
+            <Tabs.Screen name="navigate/index" />
         </Tabs>
     );
 }

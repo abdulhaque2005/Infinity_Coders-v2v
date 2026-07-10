@@ -109,6 +109,7 @@ export default function ProfileScreen() {
   const handleLogOut = async () => {
     try {
       await authService.logout();
+      await signOut();
       router.replace('/(auth)/sign-in');
     } catch (e) {
       Alert.alert('Log out failed', 'Could not log out.');
@@ -282,7 +283,7 @@ export default function ProfileScreen() {
           {/* AI Safety Analysis */}
           <TouchableOpacity
             style={styles.settingRow}
-            onPress={() => router.push('/(drawer)/(tabs)/safety-analysis')}
+            onPress={() => router.push('/(drawer)/safety-analysis')}
           >
             <View style={styles.settingTextContent}>
               <Text style={styles.settingTitle}>AI Safety Analysis</Text>

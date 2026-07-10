@@ -370,7 +370,7 @@ export default function HomeScreen() {
 
   const handleSOSActivate = () => {
     setSosActive(true);
-    router.push('/(drawer)/(tabs)/sos-placeholder');
+    router.push('/sos/active');
   };
 
   return (
@@ -558,7 +558,7 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Active Journey</Text>
         </View>
-        <Pressable onPress={() => router.push('/(drawer)/(tabs)/live-tracking')}>
+        <Pressable onPress={() => router.push('/(drawer)/live-tracking')}>
           <NeumorphicCard padding={0} style={{ overflow: 'hidden', marginBottom: 28 }}>
             <View style={{ height: 160, width: '100%' }}>
               <View pointerEvents="none" style={{ width: '100%', height: '100%' }}>
@@ -609,7 +609,7 @@ export default function HomeScreen() {
             <ChevronRight size={16} color={COLORS.textSecondary} style={styles.actionArrow} />
           </NeumorphicButton>
 
-          <NeumorphicButton style={{ width: cardWidth, marginBottom: columnGap }} onPress={() => router.push('/(drawer)/(tabs)/live-tracking')}>
+          <NeumorphicButton style={{ width: cardWidth, marginBottom: columnGap }} onPress={() => router.push('/(drawer)/live-tracking')}>
             <View style={[styles.iconBox, { backgroundColor: COLORS.greenLight }]}>
               <MapPinned size={22} color={COLORS.green} />
             </View>
@@ -636,7 +636,7 @@ export default function HomeScreen() {
             <ChevronRight size={16} color={COLORS.textSecondary} style={styles.actionArrow} />
           </NeumorphicButton>
 
-          <NeumorphicButton style={{ width: cardWidth, marginBottom: columnGap }} onPress={() => router.push('/(drawer)/(tabs)/safety-analysis')}>
+          <NeumorphicButton style={{ width: cardWidth, marginBottom: columnGap }} onPress={() => router.push('/(drawer)/safety-analysis')}>
             <View style={[styles.iconBox, { backgroundColor: COLORS.orangeLight }]}>
               <ShieldCheck size={22} color={COLORS.orange} />
             </View>
@@ -727,7 +727,7 @@ export default function HomeScreen() {
         <NeumorphicCard style={styles.scoreCard}>
           <View style={styles.scoreHeader}>
             <Text style={styles.sectionTitle}>AI Safety Score</Text>
-            <Pressable onPress={() => router.push('/(drawer)/(tabs)/safety-analysis')}>
+            <Pressable onPress={() => router.push('/(drawer)/safety-analysis')}>
               <Text style={styles.seeAllText}>View Analysis</Text>
             </Pressable>
           </View>

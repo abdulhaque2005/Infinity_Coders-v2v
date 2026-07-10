@@ -15,8 +15,8 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/src/config/firebaseConfig';
+import { useSignIn, useOAuth } from '@clerk/clerk-expo';
+import * as Linking from 'expo-linking';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -24,41 +24,53 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { signIn, setActive, isLoaded } = useSignIn();
+  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) router.replace('/(drawer)/(tabs)/home');
-    });
-    return unsubscribe;
-  }, []);
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const { createdSessionId, setActive: setActiveSession } = await startOAuthFlow({
+        redirectUrl: Linking.createURL('/oauth-native-callback', { scheme: 'myapp' }),
+      });
+      if (createdSessionId) {
+        await setActiveSession!({ session: createdSessionId });
+      }
+    } catch (error: any) {
+      Alert.alert('Google Sign-In Error', error.errors?.[0]?.message || error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter your email and password');
       return;
     }
+    if (!isLoaded) return;
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // Sign in with Clerk (passes route guards)
+      const result = await signIn.create({
+        identifier: email,
+        password: password,
+      });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+      } else {
+        console.warn("Clerk sign-in status not complete:", result.status);
+      }
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message);
+      Alert.alert('Login Failed', error.errors?.[0]?.message || error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleForgotPassword = async () => {
-    if (!email) {
-      Alert.alert('Reset Password', 'Please enter your email address first.');
-      return;
-    }
-    try {
-      await sendPasswordResetEmail(auth, email);
-      Alert.alert('Email Sent', 'Check your inbox to reset your password.');
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
-    }
+    Alert.alert('Reset Password', 'Password reset email can be requested via the Clerk web dashboard.');
   };
 
   return (
@@ -166,10 +178,17 @@ export default function SignInScreen() {
         {/* Google Button */}
         <TouchableOpacity
           style={styles.socialButton}
-          onPress={() => Alert.alert('Coming Soon', 'Google Sign-In will be available soon.')}
+          onPress={handleGoogleSignIn}
+          disabled={loading}
         >
-          <Ionicons name="logo-google" size={18} color="#EA4335" style={styles.socialIcon} />
-          <Text style={styles.socialButtonText}>Continue with Google</Text>
+          {loading ? (
+            <ActivityIndicator color="#F34E62" />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={18} color="#EA4335" style={styles.socialIcon} />
+              <Text style={styles.socialButtonText}>Continue with Google</Text>
+            </>
+          )}
         </TouchableOpacity>
 
         {/* Footer */}

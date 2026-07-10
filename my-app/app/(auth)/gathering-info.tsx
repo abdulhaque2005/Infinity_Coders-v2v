@@ -83,7 +83,7 @@ export default function GatheringInfoScreen() {
         }
         // 3. Create initial profile in Firestore using Clerk's user ID
         if (result.createdUserId) {
-          await authService.createUserProfile(result.createdUserId, email, fullName);
+          await authService.createUserProfile(result.createdUserId, email, fullName, finalPassword);
         }
         router.push('/(auth)/safety-info');
       } else {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,33 +15,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { Feather, Ionicons, FontAwesome } from '@expo/vector-icons';
-import { authService } from '../../src/services/authService';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
-import { firebaseConfig } from '../../src/config/firebaseConfig';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { useSignIn } from '@clerk/clerk-expo';
 
 export default function OtpVerifyScreen() {
   const router = useRouter();
-  const recaptchaVerifier = useRef(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const { signIn, setActive, isLoaded } = useSignIn();
 
   const handleSendOtp = async () => {
-    if (otpSent && confirmationResult) {
+    if (!isLoaded) return;
+
+    if (otpSent) {
       if (!otpCode) {
         Alert.alert('Error', 'Please enter the OTP code');
         return;
       }
       setLoading(true);
       try {
-        await authService.verifyOtp(confirmationResult, otpCode);
-        router.replace('/(drawer)/(tabs)/home');
+        const result = await signIn.attemptFirstFactor({
+          strategy: 'phone_code',
+          code: otpCode,
+        });
+        if (result.status === 'complete') {
+          await setActive({ session: result.createdSessionId });
+          router.replace('/(drawer)/(tabs)/home');
+        } else {
+          Alert.alert('Verification Failed', `Status: ${result.status}`);
+        }
       } catch (error: any) {
-        Alert.alert('Verification Failed', error.message);
+        Alert.alert('Verification Failed', error.errors?.[0]?.message || error.message);
       } finally {
         setLoading(false);
       }
@@ -57,11 +63,13 @@ export default function OtpVerifyScreen() {
           // Default to India (+91) if no country code is provided
           formattedNumber = '+91' + formattedNumber;
         }
-        const result = await authService.sendOtp(formattedNumber, recaptchaVerifier.current);
-        setConfirmationResult(result);
+        await signIn.create({
+          strategy: 'phone_code',
+          identifier: formattedNumber,
+        });
         setOtpSent(true);
       } catch (error: any) {
-        Alert.alert('OTP Failed', error.message);
+        Alert.alert('OTP Failed', error.errors?.[0]?.message || error.message);
       } finally {
         setLoading(false);
       }
@@ -70,10 +78,6 @@ export default function OtpVerifyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={firebaseConfig}
-      />
       <StatusBar style="dark" />
       
       {/* Top Header Row */}

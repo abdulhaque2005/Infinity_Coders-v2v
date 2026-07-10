@@ -87,6 +87,20 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
+          name="live-tracking"
+          options={{
+            drawerLabel: 'Live Tracking',
+            drawerIcon: ({ color }) => <Feather name="map-pin" size={22} color={color} />,
+          }}
+        />
+        <Drawer.Screen
+          name="safety-analysis"
+          options={{
+            drawerLabel: 'Safety Analysis',
+            drawerIcon: ({ color }) => <Feather name="shield" size={22} color={color} />,
+          }}
+        />
+        <Drawer.Screen
           name="fake-call"
           options={{
             drawerItemStyle: { display: 'none' }, // Hide from Drawer menu, but register route
