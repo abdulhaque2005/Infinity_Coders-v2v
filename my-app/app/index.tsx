@@ -22,13 +22,7 @@ export default function OnboardingScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
 
-      {/* Top Header Row */}
-      <View style={styles.topRow}>
-        <TouchableOpacity style={styles.skipButton} onPress={() => router.push('/(auth)/sign-in')}>
-          <Text style={styles.skipText}>Skip </Text>
-          <Feather name="chevron-right" size={16} color="#8E8E93" />
-        </TouchableOpacity>
-      </View>
+
 
       <View style={styles.mainContent}>
         {/* Main Illustration */}
