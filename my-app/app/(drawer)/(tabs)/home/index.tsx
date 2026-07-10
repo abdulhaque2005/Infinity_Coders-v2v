@@ -171,8 +171,9 @@ const PulseDot = ({ color }: { color: string }) => {
 const SOSButton = ({ isActive, onActivate }: any) => {
   const scale = useRef(new Animated.Value(1)).current;
   const progress = useRef(new Animated.Value(0)).current;
-  const holdTimer = useRef<NodeJS.Timeout | null>(null);
-  const warningTimer = useRef<NodeJS.Timeout | null>(null);
+  const holdTimer = useRef<any>(null);
+  const warningTimer = useRef<any>(null);
+  const isHeldSuccessfully = useRef(false);
 
   useEffect(() => {
     if (!isActive) {
@@ -182,6 +183,7 @@ const SOSButton = ({ isActive, onActivate }: any) => {
 
   const startHold = () => {
     if (isActive) return;
+    isHeldSuccessfully.current = false;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.parallel([
       Animated.spring(scale, { toValue: 0.92, useNativeDriver: true }),
@@ -194,6 +196,7 @@ const SOSButton = ({ isActive, onActivate }: any) => {
 
     holdTimer.current = setTimeout(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      isHeldSuccessfully.current = true;
       onActivate();
     }, 2500);
   };
@@ -204,11 +207,21 @@ const SOSButton = ({ isActive, onActivate }: any) => {
     if (warningTimer.current) clearTimeout(warningTimer.current);
     holdTimer.current = null;
     warningTimer.current = null;
-    
+
     Animated.parallel([
       Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
       Animated.timing(progress, { toValue: 0, duration: 300, useNativeDriver: false }),
     ]).start();
+  };
+
+  const handlePress = () => {
+    if (isActive || isHeldSuccessfully.current) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      "Hold to Activate",
+      "Please press and hold the SOS button for 2.5 seconds to trigger emergency help.",
+      [{ text: "OK" }]
+    );
   };
 
   const progressHeight = progress.interpolate({
@@ -220,6 +233,7 @@ const SOSButton = ({ isActive, onActivate }: any) => {
     <Pressable
       onPressIn={startHold}
       onPressOut={endHold}
+      onPress={handlePress}
       style={({ pressed }) => [styles.sosButtonWrapper, pressed && !isActive && { transform: [{ scale: 0.95 }] }]}
     >
       <View style={styles.sosOuterCircle}>
@@ -243,12 +257,12 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  
+
   // Responsive calculations
   const horizontalPadding = 20;
   const columnGap = 16;
   const cardWidth = (width - (horizontalPadding * 2) - columnGap) / 2;
-  
+
   // Bottom spacing for absolute floating tab bar
   const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 68;
   const bottomContentPadding = TAB_BAR_HEIGHT + insets.bottom + 20;
@@ -266,13 +280,13 @@ export default function HomeScreen() {
           setLocationStatus('Access enabled');
           const loc = await Location.getCurrentPositionAsync({});
           setLocation(loc);
-          
+
           // Reverse geocode
           const geocode = await Location.reverseGeocodeAsync({
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude
           });
-          
+
           if (geocode && geocode.length > 0) {
             const place = geocode[0];
             const street = place.street || place.name || '';
@@ -300,7 +314,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" backgroundColor={COLORS.bg} />
-      
+
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomContentPadding }]}
         showsVerticalScrollIndicator={false}
@@ -308,8 +322,8 @@ export default function HomeScreen() {
         {/* 1. Header & Greeting */}
         <View style={styles.headerRow}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-            <NeumorphicButton 
-              rounded={20} padding={10} 
+            <NeumorphicButton
+              rounded={20} padding={10}
               style={{ marginRight: 16, marginTop: 4 }}
               onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
             >
@@ -318,10 +332,10 @@ export default function HomeScreen() {
 
             <View>
               <View style={styles.greetingContainer}>
-                <Image 
-                  source={require('@/assets/images/safesphere_logo.png')} 
-                  style={{ width: 18, height: 18, marginRight: 6 }} 
-                  contentFit="contain" 
+                <Image
+                  source={require('@/assets/images/safesphere_logo.png')}
+                  style={{ width: 18, height: 18, marginRight: 6 }}
+                  contentFit="contain"
                 />
                 <Sun size={14} color={COLORS.orange} style={{ marginRight: 6 }} />
                 <Text style={styles.greetingSmall}>Good Afternoon,</Text>
@@ -330,24 +344,24 @@ export default function HomeScreen() {
               <Text style={styles.greetingSub}>Your safety is our priority.</Text>
             </View>
           </View>
-          
+
           <View style={styles.headerActions}>
-            <NeumorphicButton 
-              rounded={24} padding={10} 
+            <NeumorphicButton
+              rounded={24} padding={10}
               onPress={() => router.push('/(drawer)/notifications')}
             >
               <Bell size={20} color={COLORS.textPrimary} />
             </NeumorphicButton>
-            
+
             <View style={{ width: 12 }} />
-            
-            <NeumorphicButton 
-              rounded={24} padding={6} 
+
+            <NeumorphicButton
+              rounded={24} padding={6}
               onPress={() => router.push('/(drawer)/profile')}
             >
-              <Image 
-                source={{ uri: 'https://ui-avatars.com/api/?name=Priyabrata&background=6D35E8&color=fff' }} 
-                style={{ width: 28, height: 28, borderRadius: 14 }} 
+              <Image
+                source={{ uri: 'https://ui-avatars.com/api/?name=Priyabrata&background=6D35E8&color=fff' }}
+                style={{ width: 28, height: 28, borderRadius: 14 }}
               />
             </NeumorphicButton>
           </View>
@@ -363,10 +377,10 @@ export default function HomeScreen() {
                 <Text style={styles.illustrationBtnText}>Explore Features</Text>
               </TouchableOpacity>
             </View>
-            <Image 
-              source={require('@/assets/images/safe_girl.png')} 
-              style={styles.illustrationImg} 
-              contentFit="contain" 
+            <Image
+              source={require('@/assets/images/safe_girl.png')}
+              style={styles.illustrationImg}
+              contentFit="contain"
             />
           </View>
         </NeumorphicCard>
@@ -375,10 +389,9 @@ export default function HomeScreen() {
         <NeumorphicCard style={styles.statusCard}>
           <View style={styles.statusRow}>
             <View style={styles.shieldIconContainer}>
-              <LinearGradient 
-                colors={[COLORS.purpleLight, '#FFFFFF']} 
-                style={StyleSheet.absoluteFillObject} 
-                borderRadius={24} 
+              <LinearGradient
+                colors={[COLORS.purpleLight, '#FFFFFF']}
+                style={[StyleSheet.absoluteFillObject, { borderRadius: 24 }]}
               />
               <ShieldCheck size={28} color={COLORS.purplePrimary} />
             </View>
@@ -420,10 +433,10 @@ export default function HomeScreen() {
           <View style={styles.sosContainer}>
             <SOSButton isActive={sosActive} onActivate={handleSOSActivate} />
           </View>
-          
-          <NeumorphicButton 
-            padding={14} 
-            rounded={20} 
+
+          <NeumorphicButton
+            padding={14}
+            rounded={20}
             style={{ marginTop: 16, alignSelf: 'center', width: '80%' }}
             onPress={() => {
               setSosActive(false);
@@ -479,9 +492,9 @@ export default function HomeScreen() {
               <View pointerEvents="none" style={{ width: '100%', height: '100%' }}>
                 <LiveMap location={location} />
               </View>
-              <LinearGradient 
-                colors={['transparent', 'rgba(17,22,56,0.85)']} 
-                style={StyleSheet.absoluteFillObject} 
+              <LinearGradient
+                colors={['transparent', 'rgba(17,22,56,0.85)']}
+                style={StyleSheet.absoluteFillObject}
                 pointerEvents="none"
               />
               <View style={styles.journeyOverlay} pointerEvents="none">
@@ -647,7 +660,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </NeumorphicCard>
-          
+
           <NeumorphicCard padding={14} rounded={16} style={{ width: 260, marginRight: 40 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Image source={require('@/assets/images/community_safe_cartoon.png')} style={{ width: 60, height: 60, borderRadius: 12, marginRight: 12 }} />
@@ -667,7 +680,7 @@ export default function HomeScreen() {
               <Text style={styles.seeAllText}>View Analysis</Text>
             </Pressable>
           </View>
-          
+
           <View style={styles.scoreContent}>
             <View style={styles.scoreCircleWrapper}>
               <View style={styles.scoreRingOuter}>
@@ -677,10 +690,10 @@ export default function HomeScreen() {
                 </View>
               </View>
             </View>
-            
+
             <View style={styles.scoreDetails}>
               <Text style={styles.demoDataLabel}>Demo safety score</Text>
-              
+
               <View style={styles.catRow}>
                 <Text style={styles.catLabel}>Lifestyle</Text>
                 <Text style={styles.catValue}>75%</Text>
@@ -734,7 +747,7 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Live Safety Status</Text>
         </View>
-        
+
         <NeumorphicCard style={styles.liveStatusCard}>
           <View style={styles.liveStatusItem}>
             <Text style={styles.liveStatusLabel}>Location</Text>
@@ -764,17 +777,17 @@ export default function HomeScreen() {
 
         <NeumorphicCard style={styles.emptyContactsCard}>
           <View style={{ flexDirection: 'row', marginBottom: 16 }}>
-            <Image 
-              source={{ uri: 'https://ui-avatars.com/api/?name=R&background=random&color=fff' }} 
-              style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: COLORS.bg, zIndex: 3 }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=R&background=random&color=fff' }}
+              style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: COLORS.bg, zIndex: 3 }}
             />
-            <Image 
-              source={{ uri: 'https://ui-avatars.com/api/?name=M&background=random&color=fff' }} 
-              style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: COLORS.bg, marginLeft: -16, zIndex: 2 }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=M&background=random&color=fff' }}
+              style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: COLORS.bg, marginLeft: -16, zIndex: 2 }}
             />
-            <Image 
-              source={{ uri: 'https://ui-avatars.com/api/?name=S&background=random&color=fff' }} 
-              style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: COLORS.bg, marginLeft: -16, zIndex: 1 }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=S&background=random&color=fff' }}
+              style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: COLORS.bg, marginLeft: -16, zIndex: 1 }}
             />
             <View style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: COLORS.bg, marginLeft: -16, backgroundColor: COLORS.purpleLight, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.purplePrimary }}>+</Text>
@@ -782,9 +795,9 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.emptyContactsTitle}>Build your safety network</Text>
           <Text style={styles.emptyContactsSub}>Add trusted people who can help during an emergency.</Text>
-          <NeumorphicButton 
-            padding={12} 
-            rounded={16} 
+          <NeumorphicButton
+            padding={12}
+            rounded={16}
             style={styles.addContactBtn}
             onPress={() => router.push('/(drawer)/add-contact')}
           >
@@ -797,12 +810,12 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Recent Activity</Text>
           <Text style={styles.seeAllText}>See All</Text>
         </View>
-        
+
         <NeumorphicCard style={{ marginBottom: 28, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image 
-              source={{ uri: 'https://ui-avatars.com/api/?name=AI&background=6D35E8&color=fff' }} 
-              style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=AI&background=6D35E8&color=fff' }}
+              style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }}
             />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.textPrimary }}>Ananya AI</Text>
@@ -815,8 +828,8 @@ export default function HomeScreen() {
         {/* 9. Safety Tip of the Day */}
         <NeumorphicCard style={styles.tipCardWrapper} rounded={24} padding={0}>
           <LinearGradient colors={['#F5F3FF', '#EDE9FE']} style={styles.tipCardGradient}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <View style={{flex: 1, paddingRight: 10}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
                 <View style={styles.tipHeader}>
                   <Lightbulb size={24} color={COLORS.purplePrimary} />
                   <Text style={styles.tipTitle}>Daily Tip</Text>
@@ -824,8 +837,8 @@ export default function HomeScreen() {
                 <Text style={styles.tipText}>
                   Share your travel plans with someone you trust, especially when alone.
                 </Text>
-                
-                <Pressable 
+
+                <Pressable
                   style={styles.moreTipsBtn}
                   onPress={() => router.push('/(drawer)/ai-assistant')}
                 >
@@ -833,10 +846,10 @@ export default function HomeScreen() {
                   <ChevronRight size={16} color={COLORS.purplePrimary} />
                 </Pressable>
               </View>
-              <Image 
-                source={require('@/assets/images/safesphere_illustration.png')} 
-                style={{ width: 100, height: 100 }} 
-                contentFit="contain" 
+              <Image
+                source={require('@/assets/images/safesphere_illustration.png')}
+                style={{ width: 100, height: 100 }}
+                contentFit="contain"
               />
             </View>
           </LinearGradient>
@@ -862,7 +875,7 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Safety Guides</Text>
         </View>
-        
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 40, marginHorizontal: -20, paddingHorizontal: 20 }}>
           <NeumorphicCard padding={0} rounded={16} style={{ width: 220, marginRight: 16, overflow: 'hidden' }}>
             <Image source={{ uri: 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=400&h=200&fit=crop' }} style={{ width: '100%', height: 100 }} />
@@ -871,7 +884,7 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 4 }}>5 essential tips for walking alone at night.</Text>
             </View>
           </NeumorphicCard>
-          
+
           <NeumorphicCard padding={0} rounded={16} style={{ width: 220, marginRight: 16, overflow: 'hidden' }}>
             <Image source={{ uri: 'https://images.unsplash.com/photo-1584515933487-779824d29309?w=400&h=200&fit=crop' }} style={{ width: '100%', height: 100 }} />
             <View style={{ padding: 12 }}>
@@ -879,7 +892,7 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 4 }}>Learn how to handle minor medical emergencies.</Text>
             </View>
           </NeumorphicCard>
-          
+
           <NeumorphicCard padding={0} rounded={16} style={{ width: 220, marginRight: 40, overflow: 'hidden' }}>
             <Image source={{ uri: 'https://images.unsplash.com/photo-1563206767-5b18f218e8de?w=400&h=200&fit=crop' }} style={{ width: '100%', height: 100 }} />
             <View style={{ padding: 12 }}>
@@ -944,7 +957,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 120,
   },
-  
+
   // Header
   headerRow: {
     flexDirection: 'row',
@@ -975,7 +988,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
   },
-  
+
   // Status Card
   statusCard: {
     marginBottom: 16,
@@ -1088,6 +1101,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  sosContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  sosButtonWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sosMiddleCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sosOuterCircle: {
     width: 140,
@@ -1419,7 +1445,7 @@ const styles = StyleSheet.create({
     color: COLORS.purplePrimary,
     marginRight: 4,
   },
-  
+
   // Illustration Banner
   illustrationBanner: {
     flexDirection: 'row',
