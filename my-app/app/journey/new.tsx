@@ -17,7 +17,8 @@ export default function NewJourneyScreen() {
   const params = useLocalSearchParams();
   
   const destination = (params.destination as string) || 'Salt Lake Central Park';
-  const [duration, setDuration] = useState(25); // Minutes
+  const initialMins = parseInt(params.estMins as string) || 25;
+  const [duration, setDuration] = useState(initialMins); // Minutes
   const [alertStart, setAlertStart] = useState(true);
   const [alertLate, setAlertLate] = useState(true);
   const [autoSms, setAutoSms] = useState(false);
