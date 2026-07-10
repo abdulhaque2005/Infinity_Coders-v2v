@@ -79,9 +79,6 @@ export default function SignInScreen() {
   }, [response]);
 
   const handleGoogleSignIn = async () => {
-<<<<<<< HEAD
-    promptAsync();
-=======
     if (Platform.OS === 'web') {
       try {
         await authService.loginWithGoogleWeb();
@@ -92,7 +89,6 @@ export default function SignInScreen() {
     } else {
       promptAsync();
     }
->>>>>>> 767770065d5bf6eeab4a93ca7a284152a5e2e074
   };
 
   return (
