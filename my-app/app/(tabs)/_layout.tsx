@@ -58,6 +58,16 @@ export default function TabLayout() {
       />
       
       <Tabs.Screen
+        name="ai-assistant/index"
+        options={{
+          title: 'AI Assistant',
+          tabBarIcon: ({ color, focused }) => (
+            <Feather name="message-circle" size={22} color={color} style={focused && styles.activeIconGlow} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="community/index"
         options={{
           title: 'Community',
