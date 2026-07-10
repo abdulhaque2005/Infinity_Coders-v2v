@@ -94,7 +94,7 @@ export default function OnboardingScreen() {
           <TouchableOpacity
             style={styles.getStartedButton}
             activeOpacity={0.9}
-            onPress={() => router.push('/features')}
+            onPress={() => router.push('/(auth)/sign-up')}
           >
             <Text style={styles.getStartedText}>Get Started</Text>
             <Feather name="chevron-right" size={20} color="#FFFFFF" style={styles.buttonArrow} />
