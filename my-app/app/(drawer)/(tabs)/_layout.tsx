@@ -44,25 +44,29 @@ export default function TabLayout() {
           ),
         }}
       />
-      
+
       {/* Custom Elevated Center SOS Button */}
       <Tabs.Screen
         name="sos-placeholder"
         options={{
           title: 'SOS',
           tabBarLabelStyle: [styles.tabBarLabel, { color: '#DC2626', fontWeight: '800' }],
-          tabBarButton: () => (
-            <TouchableOpacity
-              style={styles.sosButtonContainer}
-              activeOpacity={0.8}
-              onPress={() => router.push('/sos/active')}
-            >
-              <View style={styles.sosInnerButton}>
-                <MaterialCommunityIcons name="alert-decagram" size={28} color="#FFFFFF" />
-              </View>
-              <Text style={styles.sosLabel}>SOS</Text>
-            </TouchableOpacity>
-          ),
+          tabBarButton: (props) => {
+            const { style, delayLongPress, ...restProps } = props as any;
+            return (
+              <TouchableOpacity
+                {...restProps}
+                style={[style, styles.sosButtonContainer]}
+                activeOpacity={0.8}
+                onPress={() => router.push('/sos/active')}
+              >
+                <View style={styles.sosInnerButton}>
+                  <MaterialCommunityIcons name="alert-decagram" size={26} color="#FFFFFF" />
+                </View>
+                <Text style={styles.sosLabel}>SOS</Text>
+              </TouchableOpacity>
+            );
+          },
         }}
       />
 
@@ -76,7 +80,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      
+
       {/* Hidden tab button but keeps the bottom navbar visible when on this screen */}
       <Tabs.Screen
         name="safety-analysis"
@@ -91,7 +95,7 @@ export default function TabLayout() {
           href: null,
         }}
       />
-      
+
       {/* Hide ghost tabs that linger if the Metro cache hasn't been reset yet */}
       <Tabs.Screen name="ai-assistant" options={{ href: null }} />
       <Tabs.Screen name="community" options={{ href: null }} />
@@ -105,13 +109,13 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: Platform.OS === 'ios' ? 88 : 68,
+    height: Platform.OS === 'ios' ? 88 : 72,
     position: 'absolute',
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     backgroundColor: '#FFFFFF',
-    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    paddingTop: 8,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.04,
@@ -131,16 +135,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   sosButtonContainer: {
-    top: -22,
-    justifyContent: 'center',
+    height: '100%',
     alignItems: 'center',
-    width: 68,
-    height: 78,
+    justifyContent: 'center',
   },
   sosInnerButton: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? -18 : -14,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#DC2626', // safety.danger (red)
     justifyContent: 'center',
     alignItems: 'center',
@@ -148,12 +152,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 6,
   },
   sosLabel: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 12 : 8,
     fontSize: 11,
     fontWeight: '800',
     color: '#DC2626',
-    marginTop: 4,
   },
 });
