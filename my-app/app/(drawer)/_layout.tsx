@@ -59,7 +59,7 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
-          name="ai-assistant"
+          name="ai-assistant/index"
           options={{
             drawerLabel: 'AI Assistant',
             drawerIcon: ({ color }) => <Feather name="message-circle" size={22} color={color} />,
@@ -73,7 +73,7 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
-          name="profile"
+          name="profile/index"
           options={{
             drawerLabel: 'Profile',
             drawerIcon: ({ color }) => <Feather name="user" size={22} color={color} />,
