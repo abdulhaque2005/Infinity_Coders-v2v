@@ -16,10 +16,7 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { useOAuth, useSignUp } from '@clerk/clerk-expo';
-import * as WebBrowser from 'expo-web-browser';
-
-WebBrowser.maybeCompleteAuthSession();
+import { auth } from '@/src/config/firebaseConfig';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -28,9 +25,6 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const { signUp, isLoaded } = useSignUp();
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
   const handleSignUp = () => {
     if (!email || !password || !fullName) {
@@ -45,27 +39,19 @@ export default function SignUpScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    try {
-      const { createdSessionId, setActive } = await startOAuthFlow();
-      if (createdSessionId) {
-        await setActive!({ session: createdSessionId });
-        // InitialLayout ka useEffect redirect karega
-      }
-    } catch (error: any) {
-      Alert.alert('Google Sign-In Error', error.errors?.[0]?.message || error.message);
-    }
+    Alert.alert('Coming Soon', 'Google Sign-In will be available soon.');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Top Header Row */}
       <View style={styles.topRow}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Feather name="arrow-left" size={24} color="#1F2937" />
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.languageButton} onPress={() => Alert.alert('Language', 'Language selection coming soon.')}>
           <Feather name="globe" size={16} color="#4B5563" style={styles.globeIcon} />
           <Text style={styles.languageText}>English</Text>
@@ -107,7 +93,7 @@ export default function SignUpScreen() {
             {/* Sign Up Tab */}
             <TouchableOpacity
               style={[styles.tab, styles.activeTab]}
-              onPress={() => {}}
+              onPress={() => { }}
             >
               <Feather name="user-plus" size={16} color="#F34E62" style={styles.tabIcon} />
               <Text style={[styles.tabText, styles.activeTabText]}>Sign Up</Text>
@@ -175,7 +161,7 @@ export default function SignUpScreen() {
             </View>
 
             {/* Primary Action Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.primaryButton}
               activeOpacity={0.9}
               onPress={handleSignUp}

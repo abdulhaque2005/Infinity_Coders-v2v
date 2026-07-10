@@ -15,10 +15,8 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { useOAuth, useSignIn, useAuth, useClerk } from '@clerk/clerk-expo';
-import * as WebBrowser from 'expo-web-browser';
-
-WebBrowser.maybeCompleteAuthSession();
+import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/src/config/firebaseConfig';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -27,62 +25,44 @@ export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { signIn, setActive, isLoaded } = useSignIn();
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
-  const { isSignedIn } = useAuth();
-  const { signOut } = useClerk();
-
-  // Agar session pehle se exist karti hai toh seedha home bhejo
   useEffect(() => {
-    if (isSignedIn) {
-      router.replace('/(drawer)/(tabs)/home');
-    }
-  }, [isSignedIn]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) router.replace('/(drawer)/(tabs)/home');
+    });
+    return unsubscribe;
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter your email and password');
       return;
     }
-    if (!isLoaded) return;
-
     setLoading(true);
     try {
-      const result = await signIn.create({
-        identifier: email,
-        password,
-      });
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        // InitialLayout ka useEffect redirect karega
-      } else {
-        Alert.alert('Login Failed', 'Please check your credentials and try again.');
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged in _layout will redirect
     } catch (error: any) {
-      Alert.alert('Login Failed', error.errors?.[0]?.message || error.message);
+      Alert.alert('Login Failed', error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     if (!email) {
       Alert.alert('Reset Password', 'Please enter your email address first.');
       return;
     }
-    Alert.alert('Reset Password', 'Please contact support to reset your password.');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert('Email Sent', 'Check your inbox to reset your password.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   const handleGoogleSignIn = async () => {
-    try {
-      const { createdSessionId, setActive: setActiveSession } = await startOAuthFlow();
-      if (createdSessionId) {
-        await setActiveSession!({ session: createdSessionId });
-        // InitialLayout ka useEffect redirect karega
-      }
-    } catch (error: any) {
-      Alert.alert('Google Sign-In Error', error.errors?.[0]?.message || error.message);
-    }
+    Alert.alert('Coming Soon', 'Google Sign-In will be available soon.');
   };
 
   return (
@@ -120,7 +100,7 @@ export default function SignInScreen() {
 
           {/* Navigation Tabs */}
           <View style={styles.tabsContainer}>
-            <TouchableOpacity style={[styles.tab, styles.activeTab]} onPress={() => {}}>
+            <TouchableOpacity style={[styles.tab, styles.activeTab]} onPress={() => { }}>
               <Feather name="log-in" size={16} color="#F34E62" style={styles.tabIcon} />
               <Text style={[styles.tabText, styles.activeTabText]}>Log In</Text>
             </TouchableOpacity>
