@@ -16,7 +16,7 @@ export default function GuardianViewScreen() {
   const { id } = useLocalSearchParams();
 
   const handleResolve = () => {
-    router.replace('/(tabs)/home');
+    router.replace('/(drawer)/(tabs)/home');
   };
 
   return (

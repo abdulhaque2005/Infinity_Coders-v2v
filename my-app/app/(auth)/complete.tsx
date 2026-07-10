@@ -17,7 +17,7 @@ export default function CompleteScreen() {
 
   const handleGoHome = () => {
     // Navigate to the main app dashboard
-    router.replace('/(tabs)/home');
+    router.replace('/(drawer)/(tabs)/home');
   };
 
   return (

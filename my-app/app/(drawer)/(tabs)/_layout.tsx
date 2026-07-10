@@ -36,15 +36,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="navigate/index"
-        options={{
-          title: 'Navigate',
-          tabBarIcon: ({ color, focused }) => (
-            <Feather name="navigation" size={22} color={color} style={focused && styles.activeIconGlow} />
-          ),
-        }}
-      />
       
       {/* Custom Elevated Center SOS Button */}
       <Tabs.Screen
@@ -66,36 +57,40 @@ export default function TabLayout() {
           ),
         }}
       />
-      
-      <Tabs.Screen
-        name="ai-assistant/index"
-        options={{
-          href: null,
-          title: 'AI Assistant',
-          tabBarIcon: ({ color, focused }) => (
-            <Feather name="message-circle" size={22} color={color} style={focused && styles.activeIconGlow} />
-          ),
-        }}
-      />
+
 
       <Tabs.Screen
-        name="community/index"
+        name="navigate/index"
         options={{
-          title: 'Community',
+          title: 'Navigate',
           tabBarIcon: ({ color, focused }) => (
-            <Feather name="users" size={22} color={color} style={focused && styles.activeIconGlow} />
+            <Feather name="navigation" size={22} color={color} style={focused && styles.activeIconGlow} />
           ),
+        }}
+      />
+      
+      {/* Hidden tab button but keeps the bottom navbar visible when on this screen */}
+      <Tabs.Screen
+        name="safety-analysis"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' }, // optional but helps
         }}
       />
       <Tabs.Screen
-        name="profile/index"
+        name="live-tracking"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <Feather name="user" size={22} color={color} style={focused && styles.activeIconGlow} />
-          ),
+          href: null,
         }}
       />
+      
+      {/* Hide ghost tabs that linger if the Metro cache hasn't been reset yet */}
+      <Tabs.Screen name="ai-assistant" options={{ href: null }} />
+      <Tabs.Screen name="community" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="ai-assistant/index" options={{ href: null }} />
+      <Tabs.Screen name="community/index" options={{ href: null }} />
+      <Tabs.Screen name="profile/index" options={{ href: null }} />
     </Tabs>
   );
 }

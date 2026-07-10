@@ -13,9 +13,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { SafeRouteMap } from '../../../features/location/components/SafeRouteMap';
-import { useLiveLocation } from '../../../features/location/hooks/useLiveLocation';
-import { RouteOption } from '../../../features/location/types/location.types';
+import { SafeRouteMap } from '../../../../features/location/components/SafeRouteMap';
+import { useLiveLocation } from '../../../../features/location/hooks/useLiveLocation';
+import { RouteOption } from '../../../../features/location/types/location.types';
 
 const { width, height } = Dimensions.get('window');
 

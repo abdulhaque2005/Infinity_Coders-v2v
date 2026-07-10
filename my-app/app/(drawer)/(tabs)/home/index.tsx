@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { DrawerToggleButton } from '@react-navigation/drawer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -72,9 +73,12 @@ export default function HomeScreen() {
       >
         {/* Top Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.headerGreeting}>Hello, Ananya (Voice Active)</Text>
-            <Text style={styles.headerSub}>You are in a monitored safe area</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <DrawerToggleButton tintColor="#1F2937" />
+            <View>
+              <Text style={styles.headerGreeting}>Hello, Ananya (Voice Active)</Text>
+              <Text style={styles.headerSub}>You are in a monitored safe area</Text>
+            </View>
           </View>
           <TouchableOpacity style={styles.notificationBtn}>
             <Feather name="bell" size={20} color="#1F2937" />
@@ -113,7 +117,11 @@ export default function HomeScreen() {
           </View>
 
           {/* Safety Score Floating Badge */}
-          <View style={styles.safetyScoreBadge}>
+          <TouchableOpacity 
+            style={styles.safetyScoreBadge}
+            activeOpacity={0.9}
+            onPress={() => router.push('/safety-analysis')}
+          >
             <View style={styles.safetyScoreCircle}>
               <Text style={styles.safetyScoreValue}>87</Text>
             </View>
@@ -121,7 +129,7 @@ export default function HomeScreen() {
               <Text style={styles.safetyScoreTitle}>Safety Score</Text>
               <Text style={styles.safetyScoreDesc}>Safe Zone</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Map Info Bar */}
           <View style={styles.mapInfoBar}>
@@ -180,7 +188,7 @@ export default function HomeScreen() {
         <View style={styles.contactsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Trusted Guardians</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
+            <TouchableOpacity onPress={() => router.push('/(drawer)/(tabs)/profile')}>
               <Text style={styles.seeAllText}>Manage</Text>
             </TouchableOpacity>
           </View>
@@ -207,7 +215,7 @@ export default function HomeScreen() {
             {/* Add Contact Button */}
             <TouchableOpacity 
               style={styles.addContactItem}
-              onPress={() => router.push('/(tabs)/profile')}
+              onPress={() => router.push('/(drawer)/(tabs)/profile')}
             >
               <View style={styles.addAvatar}>
                 <Feather name="plus" size={20} color="#9CA3AF" />
@@ -221,7 +229,7 @@ export default function HomeScreen() {
         <TouchableOpacity 
           style={styles.journeyCard}
           activeOpacity={0.9}
-          onPress={() => router.push('/journey/new')}
+          onPress={() => router.push('/live-tracking')}
         >
           <View style={styles.journeyTextContent}>
             <Text style={styles.journeyTitle}>Planning a travel?</Text>

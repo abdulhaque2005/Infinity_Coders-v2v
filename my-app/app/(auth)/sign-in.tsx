@@ -28,6 +28,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+<<<<<<< HEAD
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -85,6 +86,11 @@ export default function SignInScreen() {
     } else {
       promptAsync();
     }
+=======
+  const handleLogin = () => {
+    // Navigate to home tab
+    router.replace('/(drawer)/(tabs)/home');
+>>>>>>> 51e80f8 (chore: save local progress before pull)
   };
 
   return (

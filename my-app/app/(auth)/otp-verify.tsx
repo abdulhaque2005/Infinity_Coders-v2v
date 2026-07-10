@@ -36,7 +36,7 @@ export default function OtpVerifyScreen() {
       setLoading(true);
       try {
         await confirmationResult.confirm(otpCode);
-        router.replace('/(tabs)/home');
+        router.replace('/(drawer)/(tabs)/home');
       } catch (error: any) {
         Alert.alert('Verification Failed', error.message);
       } finally {

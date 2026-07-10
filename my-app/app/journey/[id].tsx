@@ -47,7 +47,7 @@ export default function ActiveJourneyScreen() {
 
   const handleArrival = () => {
     setJourneyComplete(true);
-    router.replace('/(tabs)/home');
+    router.replace('/(drawer)/(tabs)/home');
   };
 
   return (

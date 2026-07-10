@@ -27,7 +27,7 @@ interface Incident {
 
 export default function CommunityScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'feed' | 'heatmap'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'heatmap'>('heatmap');
   const [incidents, setIncidents] = useState<Incident[]>([
     {
       id: '1',
@@ -208,20 +208,20 @@ export default function CommunityScreen() {
         <View style={styles.heatmapWrapper}>
           <View style={styles.simulatedHeatmap}>
             {/* Grid lines */}
-            <View style={[styles.mapGridLine, { top: '25%' }]} />
-            <View style={[styles.mapGridLine, { top: '60%' }]} />
-            <View style={[styles.mapGridLine, { left: '33%', width: 1, height: '100%', backgroundColor: '#D1D5DB' }]} />
-            <View style={[styles.mapGridLine, { left: '66%', width: 1, height: '100%', backgroundColor: '#D1D5DB' }]} />
+            <View style={[styles.mapGridLine, { top: '33%' }]} />
+            <View style={[styles.mapGridLine, { top: '66%' }]} />
+            <View style={[styles.mapGridLine, { left: '33%', width: 1, height: '100%', backgroundColor: '#E5E7EB' }]} />
+            <View style={[styles.mapGridLine, { left: '66%', width: 1, height: '100%', backgroundColor: '#E5E7EB' }]} />
 
-            {/* Red Danger Glow circles */}
-            <View style={[styles.glowCircle, styles.redGlow, { top: '35%', left: '20%' }]}>
+            {/* Simulated Heatmap Glow circles matching the mockup exactly */}
+            <View style={[styles.glowCircle, styles.redGlow, { top: '45%', left: '20%' }]}>
               <View style={[styles.glowCore, { backgroundColor: '#EF4444' }]} />
             </View>
-            <View style={[styles.glowCircle, styles.orangeGlow, { top: '15%', left: '60%' }]}>
+            <View style={[styles.glowCircle, styles.orangeGlow, { top: '25%', left: '55%' }]}>
               <View style={[styles.glowCore, { backgroundColor: '#F59E0B' }]} />
             </View>
             
-            <View style={[styles.glowCircle, styles.redGlow, { top: '55%', left: '70%' }]}>
+            <View style={[styles.glowCircle, styles.redGlow, { top: '60%', left: '65%' }]}>
               <View style={[styles.glowCore, { backgroundColor: '#EF4444' }]} />
             </View>
 
@@ -247,7 +247,7 @@ export default function CommunityScreen() {
         activeOpacity={0.9}
         onPress={() => router.push('/community/report/new')}
       >
-        <Feather name="edit-3" size={22} color="#FFFFFF" />
+        <Feather name="edit-2" size={18} color="#FFFFFF" />
         <Text style={styles.fabText}>Report Incident</Text>
       </TouchableOpacity>
 

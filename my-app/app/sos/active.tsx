@@ -43,7 +43,7 @@ export default function ActiveSosScreen() {
 
   const handleCancel = () => {
     // Return back to dashboard
-    router.replace('/(tabs)/home');
+    router.replace('/(drawer)/(tabs)/home');
   };
 
   return (

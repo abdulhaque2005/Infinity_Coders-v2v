@@ -259,6 +259,20 @@ export default function ProfileScreen() {
 
           <View style={styles.separator} />
 
+          {/* AI Safety Analysis */}
+          <TouchableOpacity 
+            style={styles.settingRow}
+            onPress={() => router.push('/(drawer)/(tabs)/safety-analysis')}
+          >
+            <View style={styles.settingTextContent}>
+              <Text style={styles.settingTitle}>AI Safety Analysis</Text>
+              <Text style={styles.settingDesc}>View your personalized safety overview</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <View style={styles.separator} />
+
           {/* Language Selection */}
           <TouchableOpacity style={styles.settingRow}>
             <View style={styles.settingTextContent}>
